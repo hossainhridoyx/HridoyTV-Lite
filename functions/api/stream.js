@@ -1,7 +1,7 @@
 // functions/api/stream.js
 
 const SECRET_KEY_STR = "abqtdfghijklzxspqyatuvwxyz073116";
-const WORKER_URL = "https://sports.hridoytv.workers.dev"; // আপনার ওয়ার্কার লিংক
+const WORKER_URL = "https://jbd.hossainhridoy.workers.dev"; // 👈 আপনার নতুন ওয়ার্কার লিংক এখানে আপডেট করা হয়েছে
 
 async function generateIPToken(ip) {
   const message = `${ip}:${SECRET_KEY_STR}`;
