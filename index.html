@@ -2,152 +2,154 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HridoyTV Live - Fixed Playlist</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HridoyTV.top - Live Streaming</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@clappr/player@latest/dist/clappr.min.js"></script>
+
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #0b0f19; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #111827; }
-        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #22c55e; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+        .bg-pattern {
+            background-color: #f8fafc;
+            background-image: radial-gradient(rgba(22, 163, 74, 0.08) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .player-wrapper iframe {
+            width: 100% !important;
+            height: 100% !important;
+            aspect-ratio: 16/9;
+        }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen flex flex-col">
+<body class="min-h-[100dvh] bg-pattern flex flex-col items-center justify-between p-4 sm:p-6 selection:bg-green-500 selection:text-white">
 
-    <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 py-4 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <span class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
-                <h1 class="text-xl font-black tracking-wider text-green-500">HRIDOY<span class="text-white">TV</span></h1>
-            </div>
-            <span id="live-badge" class="text-xs bg-green-500/10 text-green-400 px-3 py-1 rounded-full font-bold border border-green-500/20">STABLE</span>
-        </div>
-    </header>
-
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div class="w-full max-w-3xl bg-white rounded-[2rem] shadow-[0_20px_40px_-15px_rgba(22,163,74,0.12)] border border-green-50 p-4 sm:p-8 relative z-10 my-auto">
         
-        <div class="lg:col-span-3 flex flex-col gap-4">
-            <div class="relative rounded-2xl overflow-hidden bg-black aspect-video border border-slate-800 shadow-2xl">
-                <video id="video" controls class="w-full h-full object-contain hidden" autoplay playsinline preload="auto"></video>
-                <div id="placeholder-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 p-6 text-center z-20">
-                    <div id="loading-spinner" class="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p id="status-text" class="text-sm sm:text-base text-slate-400 font-medium">চ্যানেল কানেক্ট করা হচ্ছে...</p>
+        <div class="text-center mb-6">
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
+                Hridoy<span class="text-green-600">TV Live</span>
+            </h1>
+            <p class="text-slate-400 text-xs sm:text-sm font-medium mt-1">Secure IP-Locked Premium Player</p>
+        </div>
+
+        <div class="relative w-full aspect-ratio bg-black rounded-2xl overflow-hidden shadow-md border border-slate-100 mb-6 player-wrapper">
+            <div id="player" class="w-full h-full aspect-video flex items-center justify-center text-white bg-slate-900">
+                <div class="text-center p-4">
+                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-green-500 mx-auto mb-2"></div>
+                    <p class="text-slate-400 text-sm">Initializing Secure Stream...</p>
                 </div>
-            </div>
-            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-                <h2 id="current-channel-title" class="text-lg font-bold text-white">লোডিং...</h2>
-                <p class="text-xs text-slate-400 mt-1">HridoyTV Secure Proxy Active</p>
             </div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col h-[400px] lg:h-auto max-h-[600px]">
-            <div class="mb-3 pb-2 border-b border-slate-800">
-                <h3 class="font-bold text-sm tracking-wide text-slate-400 uppercase">📺 চ্যানেল লিস্ট</h3>
+        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 text-left pl-1">Available Channels</h3>
+            <div class="grid grid-cols-2 gap-3">
+                
+                <button onclick="playLiveStream('galaxytv')" id="btn-galaxytv" class="channel-btn px-4 py-3 bg-white hover:bg-green-50 border border-slate-200 hover:border-green-300 text-slate-700 font-semibold rounded-xl text-sm transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-slate-300 status-dot"></span>
+                    Galaxy TV
+                </button>
+
+                <button onclick="playLiveStream('citizentv')" id="btn-citizentv" class="channel-btn px-4 py-3 bg-white hover:bg-green-50 border border-slate-200 hover:border-green-300 text-slate-700 font-semibold rounded-xl text-sm transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-slate-300 status-dot"></span>
+                    Citizen TV
+                </button>
+
+                <button onclick="playLiveStream('greentv')" id="btn-greentv" class="channel-btn px-4 py-3 bg-white hover:bg-green-50 border border-slate-200 hover:border-green-300 text-slate-700 font-semibold rounded-xl text-sm transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-slate-300 status-dot"></span>
+                    Green TV
+                </button>
+
+                <button onclick="playLiveStream('channeli')" id="btn-channeli" class="channel-btn px-4 py-3 bg-white hover:bg-green-50 border border-slate-200 hover:border-green-300 text-slate-700 font-semibold rounded-xl text-sm transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-slate-300 status-dot"></span>
+                    Channel i
+                </button>
+
             </div>
-            <div id="channel-list-container" class="flex-1 overflow-y-auto space-y-2 pr-1">
-                </div>
         </div>
-    </main>
+
+    </div>
+    
+    <div class="mt-8 mb-4 text-slate-400 text-xs sm:text-sm font-medium tracking-wide flex items-center gap-2">
+        <span>&copy; 2026</span>
+        <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+        <span class="text-green-600 font-bold tracking-wider">HRIDOYTV.TOP</span>
+    </div>
 
     <script>
-        // 🚀 আপনার আসল ওয়ার্কার লিঙ্ক
-        const workerBaseUrl = 'https://jbd.hossainhridoy.workers.dev';
+        let clapprPlayer = null;
 
-        // 🛠️ আপনার রিকোয়েস্ট করা ৩টি চ্যানেল এখানে ফিক্সড করে দেওয়া হলো
-        const channels = [
-            { name: "Channel I", slug: "channeli" },
-            { name: "Citizen TV", slug: "citizentv" },
-            { name: "EPTV", slug: "eptv" }
-        ];
+        async function playLiveStream(channelId) {
+            const playerContainer = document.getElementById("player");
+            playerContainer.innerHTML = `
+                <div class="text-center p-4">
+                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-green-500 mx-auto mb-2"></div>
+                    <p class="text-slate-400 text-sm">Securing Connection for ${channelId}...</p>
+                </div>
+            `;
 
-        const video = document.getElementById('video');
-        const placeholderScreen = document.getElementById('placeholder-screen');
-        const loadingSpinner = document.getElementById('loading-spinner');
-        const statusText = document.getElementById('status-text');
-        const currentChannelTitle = document.getElementById('current-channel-title');
-        const channelListContainer = document.getElementById('channel-list-container');
-        let hls = null;
-
-        // ১. স্ক্রিনে চ্যানেল বাটন তৈরি করা
-        function renderChannelList() {
-            channelListContainer.innerHTML = '';
-            channels.forEach((channel) => {
-                const btn = document.createElement('button');
-                btn.id = `btn-${channel.slug}`;
-                btn.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left font-medium text-sm group bg-slate-950/40 border-slate-800/60 text-slate-300 hover:bg-slate-800 hover:border-slate-700';
-                btn.innerHTML = `
-                    <span class="w-2 h-2 rounded-full bg-slate-600 group-hover:bg-green-400 transition-colors"></span>
-                    <span class="flex-1 truncate">${channel.name}</span>
-                `;
-                btn.onclick = () => playChannel(channel);
-                channelListContainer.appendChild(btn);
+            // বাটনের অ্যাক্টিভ স্টেট পরিবর্তন
+            document.querySelectorAll('.channel-btn').forEach(btn => {
+                btn.classList.remove('border-green-500', 'bg-green-50/50', 'text-green-700');
+                btn.querySelector('.status-dot').classList.remove('bg-green-500');
+                btn.querySelector('.status-dot').classList.add('bg-slate-300');
             });
-        }
+            const activeBtn = document.getElementById(`btn-${channelId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('border-green-500', 'bg-green-50/50', 'text-green-700');
+                activeBtn.querySelector('.status-dot').classList.remove('bg-slate-300');
+                activeBtn.querySelector('.status-dot').classList.add('bg-green-500');
+            }
 
-        // ২. সিলেক্টেড চ্যানেল প্লে করা
-        function playChannel(channel) {
-            channels.forEach(c => {
-                const b = document.getElementById(`btn-${c.slug}`);
-                if(b) b.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left font-medium text-sm group bg-slate-950/40 border-slate-800/60 text-slate-300 hover:bg-slate-800 hover:border-slate-700';
-            });
-            
-            const activeBtn = document.getElementById(`btn-${channel.slug}`);
-            if(activeBtn) activeBtn.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left font-medium text-sm group bg-green-500/10 border-green-500/30 text-green-400';
+            try {
+                // Cloudflare Pages ব্যাকএন্ড ফাংশন থেকে লিংক আনা
+                const response = await fetch(`/api/stream?id=${channelId}`);
+                if (!response.ok) throw new Error("Failed to fetch token");
+                
+                const data = await response.json();
+                const secureLink = data.url;
 
-            placeholderScreen.classList.remove('hidden');
-            loadingSpinner.classList.remove('hidden');
-            video.classList.add('hidden');
-            statusText.textContent = `${channel.name} লোড হচ্ছে...`;
-            currentChannelTitle.textContent = channel.name;
+                if (clapprPlayer) {
+                    clapprPlayer.destroy();
+                }
 
-            // এটি সরাসরি জেনারেট করবে: https://jbd.hossainhridoy.workers.dev/channeli.m3u8
-            const finalStreamUrl = `${workerBaseUrl}/${channel.slug}.m3u8`;
-
-            if (Hls.isSupported()) {
-                if (hls) hls.destroy();
-                hls = new Hls({
-                    maxBufferLength: 10, maxMaxBufferLength: 20, liveSyncDurationCount: 3, enableWorker: true, lowLatencyMode: true,
-                    xhrSetup: function (xhr) { xhr.withCredentials = true; }
-                });
-                hls.loadSource(finalStreamUrl);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    placeholderScreen.classList.add('hidden');
-                    video.classList.remove('hidden');
-                    video.play().catch(() => console.log("Autoplay Blocked"));
-                });
-                hls.on(Hls.Events.ERROR, (event, data) => {
-                    if (data.fatal) {
-                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) { hls.startLoad(); }
-                        else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { hls.recoverMediaError(); }
-                        else { showErrorState("লিংকটি কাজ করছে না অথবা টোকেন এক্সপায়ারড।"); }
+                playerContainer.innerHTML = ""; 
+                clapprPlayer = new Clappr.Player({
+                    source: secureLink,
+                    parentId: "#player",
+                    width: "100%",
+                    height: "100%",
+                    autoPlay: true,
+                    mediacontrol: { seekbar: "#16a34a", buttons: "#ffffff" },
+                    mimeType: "application/x-mpegURL",
+                    playback: {
+                        playInline: true,
+                        recycleVideo: true
                     }
                 });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = finalStreamUrl;
-                video.addEventListener('loadedmetadata', () => {
-                    placeholderScreen.classList.add('hidden');
-                    video.classList.remove('hidden');
-                    video.play();
-                });
+
+            } catch (error) {
+                console.error("Error loading stream:", error);
+                playerContainer.innerHTML = `
+                    <div class="text-center p-4 text-red-500">
+                        <svg class="w-10 h-10 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        <p class="text-sm font-bold">Failed to load stream</p>
+                        <p class="text-xs text-slate-500 mt-1">Please try again or check server configurations.</p>
+                    </div>
+                `;
             }
         }
 
-        function showErrorState(msg) {
-            loadingSpinner.classList.add('hidden');
-            placeholderScreen.classList.remove('hidden');
-            video.classList.add('hidden');
-            statusText.innerHTML = `<span class="text-red-500 font-bold">Error:</span> ${msg}`;
-        }
-
-        // পেজ লোড হলেই লিস্ট শো করবে এবং প্রথম চ্যানেল অন হবে
-        renderChannelList();
-        if(channels.length > 0) {
-            playChannel(channels[0]);
-        }
+        // পেজ লোড হলে ডিফল্ট চ্যানেল হিসেবে galaxytv চালু হবে
+        window.onload = function() {
+            playLiveStream("galaxytv"); 
+        };
     </script>
 </body>
 </html>
