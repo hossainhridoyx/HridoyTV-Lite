@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HridoyTV Live - Premium IPTV Player</title>
+    <title>HridoyTV Live - Auto-Sync Player</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #0b0f19; }
-        /* Custom Scrollbar for Channel List */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #111827; }
         ::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
@@ -24,54 +23,38 @@
                 <span class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
                 <h1 class="text-xl font-black tracking-wider text-green-500">HRIDOY<span class="text-white">TV</span></h1>
             </div>
-            <span id="live-badge" class="text-xs bg-green-500/10 text-green-400 px-3 py-1 rounded-full font-bold border border-green-500/20">
-                ONLINE
-            </span>
+            <span id="live-badge" class="text-xs bg-green-500/10 text-green-400 px-3 py-1 rounded-full font-bold border border-green-500/20">LIVE CONTROL</span>
         </div>
     </header>
 
     <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
         
         <div class="lg:col-span-3 flex flex-col gap-4">
-            <div class="relative rounded-2xl overflow-hidden bg-black aspect-video border border-slate-800 shadow-2xl group">
-                
+            <div class="relative rounded-2xl overflow-hidden bg-black aspect-video border border-slate-800 shadow-2xl">
                 <video id="video" controls class="w-full h-full object-contain hidden" autoplay playsinline preload="auto"></video>
-                
                 <div id="placeholder-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 p-6 text-center z-20">
                     <div id="loading-spinner" class="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p id="status-text" class="text-sm sm:text-base text-slate-400 font-medium">চ্যানেল লোড হচ্ছে...</p>
+                    <p id="status-text" class="text-sm sm:text-base text-slate-400 font-medium">KV ডাটাবেস থেকে চ্যানেল লিস্ট আনা হচ্ছে...</p>
                 </div>
             </div>
-            
             <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-                <h2 id="current-channel-title" class="text-lg font-bold text-white">সিলেক্টেড চ্যানেল</h2>
-                <p class="text-xs text-slate-400 mt-1">Streaming via Secure Cloudflare Worker Proxy</p>
+                <h2 id="current-channel-title" class="text-lg font-bold text-white">অপেক্ষা করুন...</h2>
+                <p class="text-xs text-slate-400 mt-1">Dynamic Streaming Server Sync Active</p>
             </div>
         </div>
 
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col h-[400px] lg:h-auto max-h-[600px]">
             <div class="mb-3 pb-2 border-b border-slate-800">
-                <h3 class="font-bold text-sm tracking-wide text-slate-400 uppercase">📺 চ্যানেল লিস্ট</h3>
+                <h3 class="font-bold text-sm tracking-wide text-slate-400 uppercase">📺 আপনার KV চ্যানেলসমূহ</h3>
             </div>
-            
             <div id="channel-list-container" class="flex-1 overflow-y-auto space-y-2 pr-1">
                 </div>
         </div>
-
     </main>
 
     <script>
-        // ⚠️ ১. আপনার ক্লাউডফ্লেয়ার ওয়ার্কারের বেস URL এখানে দিন (শেষে স্লাশ দিবেন না)
+        // ⚠️ আপনার ক্লাউডফ্লেয়ার ওয়ার্কারের সঠিক URLটি এখানে বসান (শেষে স্লাশ দেবেন না)
         const workerBaseUrl = 'https://YOUR_WORKER_SUBDOMAIN.workers.dev';
-
-        // ⚠️ ২. আপনার KV-তে থাকা চ্যানেলগুলোর নাম এবং কী (Key/Slug) এখানে সাজিয়ে লিখুন
-        const channels = [
-            { name: "Somoy TV", slug: "somoy" },
-            { name: "Jamuna TV", slug: "jamuna" },
-            { name: "Independent TV", slug: "independent" },
-            { name: "Channel 24", slug: "channel24" },
-            { name: "ATN Bangla", slug: "atnbangla" }
-        ];
 
         const video = document.getElementById('video');
         const placeholderScreen = document.getElementById('placeholder-screen');
@@ -79,114 +62,99 @@
         const statusText = document.getElementById('status-text');
         const currentChannelTitle = document.getElementById('current-channel-title');
         const channelListContainer = document.getElementById('channel-list-container');
-        const liveBadge = document.getElementById('live-badge');
-
         let hls = null;
 
-        // চ্যানেল লিস্ট UI তৈরি করার ফাংশন
-        function renderChannelList() {
-            channelListContainer.innerHTML = '';
-            channels.forEach((channel, index) => {
-                const btn = document.createElement('button');
-                btn.className = `w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left font-medium text-sm group channel-btn-${channel.slug} ${
-                    index === 0 
-                    ? 'bg-green-500/10 border-green-500/30 text-green-400' 
-                    : 'bg-slate-950/40 border-slate-800/60 text-slate-300 hover:bg-slate-800 hover:border-slate-700'
-                }`;
+        // ১. ওয়ার্কার থেকে সরাসরি KV-র আসল লিস্ট ফেচ করার ফাংশন
+        async function fetchChannelsFromKV() {
+            try {
+                const res = await fetch(`${workerBaseUrl}/api/channels`);
+                const channels = await res.json();
                 
+                if(!channels || channels.length === 0) {
+                    showErrorState("আপনার KV ডাটাবেসে কোনো চ্যানেল খুঁজে পাওয়া যায়নি!");
+                    return;
+                }
+                
+                renderChannelList(channels);
+                playChannel(channels[0], channels); // প্রথম চ্যানেলটি অটোমেটিক প্লে হবে
+            } catch (e) {
+                showErrorState("ওয়ার্কারের সাথে সংযোগ করা যাচ্ছে না। ডোমেইন লক চেক করুন।");
+            }
+        }
+
+        // ২. স্ক্রিনে চ্যানেল লিস্ট রেন্ডার করা
+        function renderChannelList(channels) {
+            channelListContainer.innerHTML = '';
+            channels.forEach((channel) => {
+                const btn = document.createElement('button');
+                btn.id = `btn-${channel.slug}`;
+                btn.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left font-medium text-sm group bg-slate-950/40 border-slate-800/60 text-slate-300 hover:bg-slate-800 hover:border-slate-700';
                 btn.innerHTML = `
-                    <span class="w-2 h-2 rounded-full bg-slate-600 group-hover:bg-green-400 transition-colors list-dot"></span>
+                    <span class="w-2 h-2 rounded-full bg-slate-600 group-hover:bg-green-400 transition-colors"></span>
                     <span class="flex-1 truncate">${channel.name}</span>
                 `;
-                
-                btn.onclick = () => playChannel(channel);
+                btn.onclick = () => playChannel(channel, channels);
                 channelListContainer.appendChild(btn);
             });
         }
 
-        // একটি নির্দিষ্ট চ্যানেল প্লে করার মেইন ফাংশন
-        function playChannel(channel) {
-            // একটিভ ক্লাসের UI পরিবর্তন
-            document.querySelectorAll('#channel-list-container button').forEach(b => {
-                b.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left font-medium text-sm group bg-slate-950/40 border-slate-800/60 text-slate-300 hover:bg-slate-800 hover:border-slate-700';
+        // ৩. চ্যানেল প্লে করার মেইন মেকানিজম
+        function playChannel(channel, channels) {
+            channels.forEach(c => {
+                const b = document.getElementById(`btn-${c.slug}`);
+                if(b) b.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left font-medium text-sm group bg-slate-950/40 border-slate-800/60 text-slate-300 hover:bg-slate-800 hover:border-slate-700';
             });
-            const activeBtn = document.querySelector(`.channel-btn-${channel.slug}`);
-            if(activeBtn) {
-                activeBtn.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left font-medium text-sm group bg-green-500/10 border-green-500/30 text-green-400';
-            }
+            
+            const activeBtn = document.getElementById(`btn-${channel.slug}`);
+            if(activeBtn) activeBtn.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left font-medium text-sm group bg-green-500/10 border-green-500/30 text-green-400';
 
-            // প্লেয়ার রিসেট ও লোডিং স্ক্রিন শো
             placeholderScreen.classList.remove('hidden');
             loadingSpinner.classList.remove('hidden');
             video.classList.add('hidden');
-            statusText.textContent = `${channel.name} সংযোগ করা হচ্ছে...`;
+            statusText.textContent = `${channel.name} লোড হচ্ছে...`;
             currentChannelTitle.textContent = channel.name;
 
-            // ফাইনাল ওয়ার্কার URL জেনারেট
             const finalStreamUrl = `${workerBaseUrl}/${channel.slug}.m3u8`;
 
             if (Hls.isSupported()) {
-                if (hls) { hls.destroy(); } // আগের সেশন ডিলিট
-
+                if (hls) hls.destroy();
                 hls = new Hls({
-                    maxBufferLength: 10,
-                    maxMaxBufferLength: 20,
-                    liveSyncDurationCount: 3,
-                    enableWorker: true,
-                    lowLatencyMode: true,
-                    xhrSetup: function (xhr) {
-                        xhr.withCredentials = true; // কুকি পাসিং মেকানিজম
-                    }
+                    maxBufferLength: 10, maxMaxBufferLength: 20, liveSyncDurationCount: 3, enableWorker: true, lowLatencyMode: true,
+                    xhrSetup: function (xhr) { xhr.withCredentials = true; }
                 });
-
                 hls.loadSource(finalStreamUrl);
                 hls.attachMedia(video);
-
-                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
                     placeholderScreen.classList.add('hidden');
                     video.classList.remove('hidden');
-                    video.play().catch(e => console.log("Autoplay blocked"));
+                    video.play().catch(() => console.log("Autoplay Blocked"));
                 });
-
-                hls.on(Hls.Events.ERROR, function (event, data) {
+                hls.on(Hls.Events.ERROR, (event, data) => {
                     if (data.fatal) {
-                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                            statusText.textContent = "নেটওয়ার্ক রি-ট্রাই করা হচ্ছে...";
-                            hls.startLoad();
-                        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                            hls.recoverMediaError();
-                        } else {
-                            showErrorState();
-                        }
+                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) { hls.startLoad(); }
+                        else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { hls.recoverMediaError(); }
+                        else { showErrorState("এই চ্যানেলটি এই মুহূর্তে অফলাইন আছে।"); }
                     }
                 });
-            } 
-            // iOS / Safari Native Support
-            else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = finalStreamUrl;
-                video.addEventListener('loadedmetadata', function () {
+                video.addEventListener('loadedmetadata', () => {
                     placeholderScreen.classList.add('hidden');
                     video.classList.remove('hidden');
                     video.play();
                 });
-                video.addEventListener('error', function() {
-                    showErrorState();
-                });
             }
         }
 
-        function showErrorState() {
+        function showErrorState(msg) {
             loadingSpinner.classList.add('hidden');
             placeholderScreen.classList.remove('hidden');
             video.classList.add('hidden');
-            statusText.innerHTML = `<span class="text-red-500 font-bold">Error:</span> স্ট্রিমটি প্লে করা যাচ্ছে না।`;
+            statusText.innerHTML = `<span class="text-red-500 font-bold">Error:</span> ${msg}`;
         }
 
-        // পেজ লোড হলে প্রথম রান
-        renderChannelList();
-        if(channels.length > 0) {
-            playChannel(channels[0]); // প্রথম চ্যানেলটি অটো-প্লে হবে
-        }
+        // পেজ ওপেন হলেই অটো-ফেচ রান হবে
+        fetchChannelsFromKV();
     </script>
 </body>
 </html>
