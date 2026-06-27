@@ -1,41 +1,40 @@
-// functions/api/stream.js
-
-const SECRET_KEY_STR = "abqtdfghijklzxspqyatuvwxyz073116";
-const WORKER_URL = "https://jbd.hossainhridoy.workers.dev"; // আপনার নতুন ওয়ার্কার লিংক
-
-async function generateIPToken(ip) {
-  const message = `${ip}:${SECRET_KEY_STR}`;
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-}
+// functions/api/getstream.js
 
 export async function onRequest(context) {
-  const { request } = context;
+  const { request, env } = context;
   const url = new URL(request.url);
   
-  // ইউজার কোন চ্যানেল দেখতে চায় তা নেওয়া (যেমন: channeli)
-  let channelId = url.searchParams.get("id") || "";
-
-  // 💡 যদি নামের শেষে .m3u8 না থাকে, তবে অটোমেটিক যোগ হবে (যাতে KV এর সাথে ১০০% মিলে যায়)
-  if (channelId && !channelId.endsWith(".m3u8")) {
-    channelId = `${channelId}.m3u8`;
+  // ইউজার কোন চ্যানেল চাচ্ছে (যেমন: ?key=channeli.m3u8)
+  const key = url.searchParams.get("key"); 
+  
+  if (!key) {
+    return new Response(JSON.stringify({ error: "KV Key (e.g. channeli.m3u8) is required" }), { 
+      status: 400,
+      headers: { "Content-Type": "application/json" }
+    });
   }
 
-  // ইউজারের রিয়েল আইপি অ্যাড্রেস নেওয়া
-  const clientIP = request.headers.get("CF-Connecting-IP") || "0.0.0.0";
+  // আপনার ওয়ার্কারের আসল ডোমেইন ইউআরএল
+  const WORKER_DOMAIN = "https://jbd.hossainhridoy.workers.dev"; 
   
-  // আইপি অনুযায়ী সিকিউর টোকেন জেনারেট করা
-  const token = await generateIPToken(clientIP);
+  // পেজেস এনভায়রনমেন্ট ভেরিয়েবল থেকে সিক্রেট টোকেন নেওয়া হচ্ছে
+  const SECURE_TOKEN = env.SECURE_TOKEN; 
 
-  // ফাইনাল প্লেয়ার ইউআরএল তৈরি (যেমন: .../channeli.m3u8?token=...)
-  const secureUrl = `${WORKER_URL}/${channelId}?token=${token}`;
+  if (!SECURE_TOKEN) {
+    return new Response(JSON.stringify({ error: "Server configuration missing: SECURE_TOKEN" }), { 
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
 
-  return new Response(JSON.stringify({ url: secureUrl }), {
-    headers: { 
+  // সম্পূর্ণ সুরক্ষিত এবং ভ্যালিড টোকেনসহ ওয়ার্কারের ইউআরএল তৈরি
+  const secureStreamUrl = `${WORKER_DOMAIN}/${key}?token=${SECURE_TOKEN}`;
+
+  // প্লেয়ার ফ্রন্টএন্ডের জন্য JSON রেসপন্স
+  return new Response(JSON.stringify({ url: secureStreamUrl }), {
+    headers: {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*"
+      "Access-Control-Allow-Origin": "*" 
     }
   });
 }
