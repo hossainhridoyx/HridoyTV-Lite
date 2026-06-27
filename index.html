@@ -18,7 +18,6 @@
             background-image: radial-gradient(rgba(22, 163, 74, 0.08) 1px, transparent 1px);
             background-size: 24px 24px;
         }
-        /* Custom aspect ratio for responsive video */
         .video-container {
             position: relative;
             padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
@@ -54,7 +53,7 @@
                     <h2 id="currentChannelName" class="text-lg font-bold text-slate-800">Select a Channel</h2>
                     <p class="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
                         <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        Secure Proxy Stream Active
+                        Tokenless Secure Tunnel Active
                     </p>
                 </div>
                 <div class="text-xs font-semibold text-green-700 bg-green-50 px-3 py-1.5 rounded-full border border-green-100">
@@ -105,7 +104,6 @@
     </footer>
 
     <script>
-        // অটোমেটিক বছর সেট করা
         document.getElementById('year').textContent = new Date().getFullYear();
 
         const video = document.getElementById('videoPlayer');
@@ -115,9 +113,8 @@
 
         async function loadSecureStream(kvKey, displayName) {
             channelTitle.textContent = `Loading ${displayName}...`;
-            networkRetryCount = 0; // রিকানেক্ট কাউন্টার রিসেট করা হলো
+            networkRetryCount = 0; 
             
-            // সিলেক্টেড বাটনের বর্ডার হাইলাইট পরিবর্তন লজিক
             document.querySelectorAll('.channel-btn').forEach(btn => {
                 btn.classList.remove('border-green-500', 'bg-green-50/50');
             });
@@ -125,100 +122,63 @@
                 event.currentTarget.classList.add('border-green-500', 'bg-green-50/50');
             }
 
-            try {
-                // আপনার ক্লাউডফ্লেয়ার পেজেস ফাংশন ব্যাকএন্ড কল করা হচ্ছে
-                const response = await fetch(`/api/getstream?key=${kvKey}`);
-                if (!response.ok) throw new Error('Network response was not ok');
+            // 🚀 ইউআরএল সম্পূর্ণ ক্লিন, কোনো গোপন টোকেন এখানে নেই
+            const secureUrl = `/api/getstream?key=${kvKey}`;
+            console.log("Stream Core Target Set:", secureUrl);
+
+            if (hls) {
+                hls.destroy();
+            }
+
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    maxMaxBufferLength: 15,
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                    backBufferLength: 30
+                });
                 
-                const data = await response.json();
-                if (!data.url) throw new Error('Secure URL not found');
-
-                const secureUrl = data.url;
-                console.log("Playing Secure Stream URL:", secureUrl);
-
-                // আগের চলমান কোনো স্ট্রিম থাকলে তা বন্ধ ও ক্লিনআপ করা
-                if (hls) {
-                    hls.destroy();
-                }
-
-                if (Hls.isSupported()) {
-                    // বাফার টিউনিং এবং লাইভ অপ্টিমাইজেশন
-                    hls = new Hls({
-                        maxMaxBufferLength: 15, // লাইভ ড্রপ হ্যান্ডেল করতে বাফার বাড়ানো হলো
-                        enableWorker: true,
-                        lowLatencyMode: true,
-                        backBufferLength: 30
-                    });
-                    
-                    hls.loadSource(secureUrl);
-                    hls.attachMedia(video);
-                    
-                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        video.play().catch(e => console.log("Autoplay blocked, waiting for user click"));
-                        channelTitle.textContent = displayName;
-                    });
-                    
-                    // 🛡️ শক্তিশালী অটো-রিকানেক্ট ও স্মার্ট এরর রিকভারি সিস্টেম
-                    hls.on(Hls.Events.ERROR, function (event, data) {
-                        if (data.fatal) {
-                            switch (data.type) {
-                                case Hls.ErrorTypes.NETWORK_ERROR:
-                                    // নেটওয়ার্ক সাময়িক ড্রপ করলে বা জ্যাগোবিডি স্লো রেসপন্স করলে পুনরায় ডাটা টানবে
-                                    console.log("Fatal network error detected, trying to recover...");
-                                    channelTitle.textContent = "Stream Glitch! Reconnecting...";
-                                    hls.startLoad();
-                                    break;
-                                    
-                                case Hls.ErrorTypes.MEDIA_ERROR:
-                                    // ভিডিও বাফারিং বা মিডিয়া ফরম্যাট রিকভার করবে
-                                    console.log("Fatal media error detected, trying to recover...");
-                                    channelTitle.textContent = "Fixing media buffer...";
-                                    hls.recoverMediaError();
-                                    break;
-                                    
-                                default:
-                                    // যদি কোনোভাবেই ঠিক না হয়, তবে ৩ সেকেন্ড পর পুরো চ্যানেলটি হার্ড রিলোড করবে
-                                    console.log("Unrecoverable error. Hard reloading stream...");
-                                    channelTitle.textContent = "Stream Error! Reloading...";
-                                    if(networkRetryCount < 5) {
-                                        networkRetryCount++;
-                                        setTimeout(() => {
-                                            loadSecureStream(kvKey, displayName);
-                                        }, 3000);
-                                    } else {
-                                        channelTitle.textContent = "Stream offline. Try again later.";
-                                        hls.destroy();
-                                    }
-                                    break;
-                            }
+                hls.loadSource(secureUrl);
+                hls.attachMedia(video);
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play().catch(e => console.log("Autoplay paused, awaiting user interaction."));
+                    channelTitle.textContent = displayName;
+                });
+                
+                // 🛡️ অ্যাডভান্সড এরর রিকভারি এবং অটো-হিলিং
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                console.log("Network drop. Re-requesting stream segments...");
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.log("Media stall. Trying buffer recovery...");
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                if(networkRetryCount < 5) {
+                                    networkRetryCount++;
+                                    setTimeout(() => { loadSecureStream(kvKey, displayName); }, 3000);
+                                } else {
+                                    channelTitle.textContent = "Stream offline. Try again later.";
+                                    hls.destroy();
+                                }
+                                break;
                         }
-                    });
+                    }
+                });
 
-                } 
-                // আইফোন/সাফারি ব্রাউজারের নেটিভ সাপোর্ট হ্যান্ডলার
-                else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    video.src = secureUrl;
-                    video.addEventListener('loadedmetadata', function() {
-                        video.play();
-                        channelTitle.textContent = displayName;
-                    });
-                    
-                    // নেটিভ প্লেয়ারের এরর রিকভারি
-                    video.onerror = function() {
-                        channelTitle.textContent = "Stream Error! Retrying...";
-                        setTimeout(() => {
-                            video.src = secureUrl;
-                            video.load();
-                            video.play();
-                        }, 3000);
-                    };
-                } else {
-                    channelTitle.textContent = "Your browser does not support HLS streaming.";
-                }
-
-            } catch (error) {
-                console.error("Error loading stream:", error);
-                channelTitle.textContent = "Failed to load channel. Try again.";
+            } 
+            // iOS/Safari Native Handler
+            else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = secureUrl;
+                video.addEventListener('loadedmetadata', function() {
+                    video.play();
+                    channelTitle.textContent = displayName;
+                });
             }
         }
     </script>
