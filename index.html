@@ -2,42 +2,102 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HridoyTV Lite</title>
+
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
 <style>
-body{
+html,body{
 margin:0;
+padding:0;
+width:100%;
+height:100%;
 background:#000;
-display:flex;
-justify-content:center;
-align-items:center;
-height:100vh;
+overflow:hidden;
 }
 video{
 width:100%;
 height:100%;
 background:#000;
+object-fit:contain;
+}
+#loading{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+display:flex;
+justify-content:center;
+align-items:center;
+background:#000;
+color:#fff;
+font-family:sans-serif;
+font-size:18px;
+z-index:99;
 }
 </style>
+
 </head>
 <body>
 
-<video id="video" controls autoplay playsinline></video>
+<div id="loading">Loading...</div>
+
+<video
+id="player"
+controls
+autoplay
+playsinline
+webkit-playsinline>
+</video>
 
 <script>
-const channel = "channeli"; // এখানে Channel ID দিন
-const url = `https://hridoytvlite.pages.dev/${channel}`;
 
-const video = document.getElementById("video");
+const STREAM_URL="https://hridoytvlite.pages.dev/api/channeli.m3u8";
 
-if (Hls.isSupported()) {
-  const hls = new Hls();
-  hls.loadSource(url);
-  hls.attachMedia(video);
-} else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-  video.src = url;
+const video=document.getElementById("player");
+const loading=document.getElementById("loading");
+
+if(Hls.isSupported()){
+
+const hls=new Hls({
+enableWorker:true,
+lowLatencyMode:true
+});
+
+hls.loadSource(STREAM_URL);
+hls.attachMedia(video);
+
+hls.on(Hls.Events.MANIFEST_PARSED,function(){
+loading.style.display="none";
+video.play().catch(()=>{});
+});
+
+hls.on(Hls.Events.ERROR,function(event,data){
+console.log(data);
+loading.innerHTML="Playback Error";
+});
+
+}else if(video.canPlayType("application/vnd.apple.mpegurl")){
+
+video.src=STREAM_URL;
+
+video.onloadedmetadata=function(){
+loading.style.display="none";
+video.play().catch(()=>{});
+};
+
+video.onerror=function(){
+loading.innerHTML="Playback Error";
+};
+
+}else{
+
+loading.innerHTML="HLS Not Supported";
+
 }
+
 </script>
 
 </body>
