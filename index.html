@@ -53,8 +53,8 @@
     </main>
 
     <script>
-        // ⚠️ আপনার ক্লাউডফ্লেয়ার ওয়ার্কারের সঠিক URLটি এখানে বসান (শেষে স্লাশ দেবেন না)
-        const workerBaseUrl = 'https://YOUR_WORKER_SUBDOMAIN.workers.dev';
+        // 🚀 আপনার অরিজিনাল ক্লাউডফ্লেয়ার ওয়ার্কার URL এখানে সেট করে দেওয়া হয়েছে
+        const workerBaseUrl = 'https://jbd.hossainhridoy.workers.dev';
 
         const video = document.getElementById('video');
         const placeholderScreen = document.getElementById('placeholder-screen');
@@ -78,7 +78,7 @@
                 renderChannelList(channels);
                 playChannel(channels[0], channels); // প্রথম চ্যানেলটি অটোমেটিক প্লে হবে
             } catch (e) {
-                showErrorState("ওয়ার্কারের সাথে সংযোগ করা যাচ্ছে না। ডোমেইন লক চেক করুন।");
+                showErrorState("ওয়ার্কারের সাথে সংযোগ করা যাচ্ছে না। ডোমেইন লক অথবা CORS ব্লক হতে পারে।");
             }
         }
 
@@ -120,7 +120,7 @@
                 if (hls) hls.destroy();
                 hls = new Hls({
                     maxBufferLength: 10, maxMaxBufferLength: 20, liveSyncDurationCount: 3, enableWorker: true, lowLatencyMode: true,
-                    xhrSetup: function (xhr) { xhr.withCredentials = true; }
+                    xhrSetup: function (xhr) { xhr.withCredentials = true; } // কুকি পাসিং সিস্টেম
                 });
                 hls.loadSource(finalStreamUrl);
                 hls.attachMedia(video);
@@ -133,7 +133,7 @@
                     if (data.fatal) {
                         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) { hls.startLoad(); }
                         else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { hls.recoverMediaError(); }
-                        else { showErrorState("এই চ্যানেলটি এই মুহূর্তে অফলাইন আছে।"); }
+                        else { showErrorState("এই চ্যানেলটি এই মুহূর্তে অফলাইন আছে বা টোকেন এক্সপায়ার হয়েছে।"); }
                     }
                 });
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
