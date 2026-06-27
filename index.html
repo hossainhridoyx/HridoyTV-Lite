@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HridoyTV Live - Auto-Sync Player</title>
+    <title>HridoyTV Live - Fixed Playlist</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -23,7 +23,7 @@
                 <span class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
                 <h1 class="text-xl font-black tracking-wider text-green-500">HRIDOY<span class="text-white">TV</span></h1>
             </div>
-            <span id="live-badge" class="text-xs bg-green-500/10 text-green-400 px-3 py-1 rounded-full font-bold border border-green-500/20">LIVE CONTROL</span>
+            <span id="live-badge" class="text-xs bg-green-500/10 text-green-400 px-3 py-1 rounded-full font-bold border border-green-500/20">STABLE</span>
         </div>
     </header>
 
@@ -34,18 +34,18 @@
                 <video id="video" controls class="w-full h-full object-contain hidden" autoplay playsinline preload="auto"></video>
                 <div id="placeholder-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 p-6 text-center z-20">
                     <div id="loading-spinner" class="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p id="status-text" class="text-sm sm:text-base text-slate-400 font-medium">KV ডাটাবেস থেকে চ্যানেল লিস্ট আনা হচ্ছে...</p>
+                    <p id="status-text" class="text-sm sm:text-base text-slate-400 font-medium">চ্যানেল কানেক্ট করা হচ্ছে...</p>
                 </div>
             </div>
             <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-                <h2 id="current-channel-title" class="text-lg font-bold text-white">অপেক্ষা করুন...</h2>
-                <p class="text-xs text-slate-400 mt-1">Dynamic Streaming Server Sync Active</p>
+                <h2 id="current-channel-title" class="text-lg font-bold text-white">লোডিং...</h2>
+                <p class="text-xs text-slate-400 mt-1">HridoyTV Secure Proxy Active</p>
             </div>
         </div>
 
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col h-[400px] lg:h-auto max-h-[600px]">
             <div class="mb-3 pb-2 border-b border-slate-800">
-                <h3 class="font-bold text-sm tracking-wide text-slate-400 uppercase">📺 আপনার KV চ্যানেলসমূহ</h3>
+                <h3 class="font-bold text-sm tracking-wide text-slate-400 uppercase">📺 চ্যানেল লিস্ট</h3>
             </div>
             <div id="channel-list-container" class="flex-1 overflow-y-auto space-y-2 pr-1">
                 </div>
@@ -53,8 +53,15 @@
     </main>
 
     <script>
-        // 🚀 আপনার অরিজিনাল ক্লাউডফ্লেয়ার ওয়ার্কার URL এখানে সেট করে দেওয়া হয়েছে
+        // 🚀 আপনার আসল ওয়ার্কার লিঙ্ক
         const workerBaseUrl = 'https://jbd.hossainhridoy.workers.dev';
+
+        // 🛠️ আপনার রিকোয়েস্ট করা ৩টি চ্যানেল এখানে ফিক্সড করে দেওয়া হলো
+        const channels = [
+            { name: "Channel I", slug: "channeli" },
+            { name: "Citizen TV", slug: "citizentv" },
+            { name: "EPTV", slug: "eptv" }
+        ];
 
         const video = document.getElementById('video');
         const placeholderScreen = document.getElementById('placeholder-screen');
@@ -64,26 +71,8 @@
         const channelListContainer = document.getElementById('channel-list-container');
         let hls = null;
 
-        // ১. ওয়ার্কার থেকে সরাসরি KV-র আসল লিস্ট ফেচ করার ফাংশন
-        async function fetchChannelsFromKV() {
-            try {
-                const res = await fetch(`${workerBaseUrl}/api/channels`);
-                const channels = await res.json();
-                
-                if(!channels || channels.length === 0) {
-                    showErrorState("আপনার KV ডাটাবেসে কোনো চ্যানেল খুঁজে পাওয়া যায়নি!");
-                    return;
-                }
-                
-                renderChannelList(channels);
-                playChannel(channels[0], channels); // প্রথম চ্যানেলটি অটোমেটিক প্লে হবে
-            } catch (e) {
-                showErrorState("ওয়ার্কারের সাথে সংযোগ করা যাচ্ছে না। ডোমেইন লক অথবা CORS ব্লক হতে পারে।");
-            }
-        }
-
-        // ২. স্ক্রিনে চ্যানেল লিস্ট রেন্ডার করা
-        function renderChannelList(channels) {
+        // ১. স্ক্রিনে চ্যানেল বাটন তৈরি করা
+        function renderChannelList() {
             channelListContainer.innerHTML = '';
             channels.forEach((channel) => {
                 const btn = document.createElement('button');
@@ -93,13 +82,13 @@
                     <span class="w-2 h-2 rounded-full bg-slate-600 group-hover:bg-green-400 transition-colors"></span>
                     <span class="flex-1 truncate">${channel.name}</span>
                 `;
-                btn.onclick = () => playChannel(channel, channels);
+                btn.onclick = () => playChannel(channel);
                 channelListContainer.appendChild(btn);
             });
         }
 
-        // ৩. চ্যানেল প্লে করার মেইন মেকানিজম
-        function playChannel(channel, channels) {
+        // ২. সিলেক্টেড চ্যানেল প্লে করা
+        function playChannel(channel) {
             channels.forEach(c => {
                 const b = document.getElementById(`btn-${c.slug}`);
                 if(b) b.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left font-medium text-sm group bg-slate-950/40 border-slate-800/60 text-slate-300 hover:bg-slate-800 hover:border-slate-700';
@@ -114,13 +103,14 @@
             statusText.textContent = `${channel.name} লোড হচ্ছে...`;
             currentChannelTitle.textContent = channel.name;
 
+            // এটি সরাসরি জেনারেট করবে: https://jbd.hossainhridoy.workers.dev/channeli.m3u8
             const finalStreamUrl = `${workerBaseUrl}/${channel.slug}.m3u8`;
 
             if (Hls.isSupported()) {
                 if (hls) hls.destroy();
                 hls = new Hls({
                     maxBufferLength: 10, maxMaxBufferLength: 20, liveSyncDurationCount: 3, enableWorker: true, lowLatencyMode: true,
-                    xhrSetup: function (xhr) { xhr.withCredentials = true; } // কুকি পাসিং সিস্টেম
+                    xhrSetup: function (xhr) { xhr.withCredentials = true; }
                 });
                 hls.loadSource(finalStreamUrl);
                 hls.attachMedia(video);
@@ -133,7 +123,7 @@
                     if (data.fatal) {
                         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) { hls.startLoad(); }
                         else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) { hls.recoverMediaError(); }
-                        else { showErrorState("এই চ্যানেলটি এই মুহূর্তে অফলাইন আছে বা টোকেন এক্সপায়ার হয়েছে।"); }
+                        else { showErrorState("লিংকটি কাজ করছে না অথবা টোকেন এক্সপায়ারড।"); }
                     }
                 });
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -153,8 +143,11 @@
             statusText.innerHTML = `<span class="text-red-500 font-bold">Error:</span> ${msg}`;
         }
 
-        // পেজ ওপেন হলেই অটো-ফেচ রান হবে
-        fetchChannelsFromKV();
+        // পেজ লোড হলেই লিস্ট শো করবে এবং প্রথম চ্যানেল অন হবে
+        renderChannelList();
+        if(channels.length > 0) {
+            playChannel(channels[0]);
+        }
     </script>
 </body>
 </html>
