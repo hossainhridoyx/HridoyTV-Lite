@@ -2,154 +2,73 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HridoyTV.top - Live Streaming</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HridoyTV Live Stream</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@clappr/player@latest/dist/clappr.min.js"></script>
-
     <style>
-        body { 
-            font-family: 'Inter', sans-serif; 
-            -webkit-tap-highlight-color: transparent; 
-        }
-        .bg-pattern {
-            background-color: #f8fafc;
-            background-image: radial-gradient(rgba(22, 163, 74, 0.08) 1px, transparent 1px);
-            background-size: 24px 24px;
-        }
-        .player-wrapper iframe {
-            width: 100% !important;
-            height: 100% !important;
-            aspect-ratio: 16/9;
-        }
+        body { background-color: #0f172a; }
     </style>
 </head>
-<body class="min-h-[100dvh] bg-pattern flex flex-col items-center justify-between p-4 sm:p-6 selection:bg-green-500 selection:text-white">
+<body class="flex items-center justify-center min-h-screen p-4 sm:p-6">
 
-    <div class="w-full max-w-3xl bg-white rounded-[2rem] shadow-[0_20px_40px_-15px_rgba(22,163,74,0.12)] border border-green-50 p-4 sm:p-8 relative z-10 my-auto">
-        
-        <div class="text-center mb-6">
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
-                Hridoy<span class="text-green-600">TV Live</span>
-            </h1>
-            <p class="text-slate-400 text-xs sm:text-sm font-medium mt-1">Secure IP-Locked Premium Player</p>
-        </div>
-
-        <div class="relative w-full aspect-ratio bg-black rounded-2xl overflow-hidden shadow-md border border-slate-100 mb-6 player-wrapper">
-            <div id="player" class="w-full h-full aspect-video flex items-center justify-center text-white bg-slate-900">
-                <div class="text-center p-4">
-                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-green-500 mx-auto mb-2"></div>
-                    <p class="text-slate-400 text-sm">Initializing Secure Stream...</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 text-left pl-1">Available Channels</h3>
-            <div class="grid grid-cols-2 gap-3">
-                
-                <button onclick="playLiveStream('galaxytv')" id="btn-galaxytv" class="channel-btn px-4 py-3 bg-white hover:bg-green-50 border border-slate-200 hover:border-green-300 text-slate-700 font-semibold rounded-xl text-sm transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-slate-300 status-dot"></span>
-                    Galaxy TV
-                </button>
-
-                <button onclick="playLiveStream('citizentv')" id="btn-citizentv" class="channel-btn px-4 py-3 bg-white hover:bg-green-50 border border-slate-200 hover:border-green-300 text-slate-700 font-semibold rounded-xl text-sm transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-slate-300 status-dot"></span>
-                    Citizen TV
-                </button>
-
-                <button onclick="playLiveStream('greentv')" id="btn-greentv" class="channel-btn px-4 py-3 bg-white hover:bg-green-50 border border-slate-200 hover:border-green-300 text-slate-700 font-semibold rounded-xl text-sm transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-slate-300 status-dot"></span>
-                    Green TV
-                </button>
-
-                <button onclick="playLiveStream('channeli')" id="btn-channeli" class="channel-btn px-4 py-3 bg-white hover:bg-green-50 border border-slate-200 hover:border-green-300 text-slate-700 font-semibold rounded-xl text-sm transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-slate-300 status-dot"></span>
-                    Channel i
-                </button>
-
-            </div>
-        </div>
-
-    </div>
-    
-    <div class="mt-8 mb-4 text-slate-400 text-xs sm:text-sm font-medium tracking-wide flex items-center gap-2">
-        <span>&copy; 2026</span>
-        <span class="w-1 h-1 rounded-full bg-slate-300"></span>
-        <span class="text-green-600 font-bold tracking-wider">HRIDOYTV.TOP</span>
+    <div class="w-full max-w-4xl bg-black rounded-3xl overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-slate-800 relative group">
+        <video id="video" controls class="w-full aspect-video object-contain" autoplay playsinline preload="auto"></video>
     </div>
 
     <script>
-        let clapprPlayer = null;
+        const video = document.getElementById('video');
+        
+        // ⚠️ আপনার ক্লাউডফ্লেয়ার ওয়ার্কারের ফাইনাল M3U8 লিংকটি এখানে বসান
+        const streamUrl = 'https://YOUR_WORKER_SUBDOMAIN.workers.dev/channel_key.m3u8'; 
 
-        async function playLiveStream(channelId) {
-            const playerContainer = document.getElementById("player");
-            playerContainer.innerHTML = `
-                <div class="text-center p-4">
-                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-green-500 mx-auto mb-2"></div>
-                    <p class="text-slate-400 text-sm">Securing Connection for ${channelId}...</p>
-                </div>
-            `;
-
-            // বাটনের অ্যাক্টিভ স্টেট পরিবর্তন
-            document.querySelectorAll('.channel-btn').forEach(btn => {
-                btn.classList.remove('border-green-500', 'bg-green-50/50', 'text-green-700');
-                btn.querySelector('.status-dot').classList.remove('bg-green-500');
-                btn.querySelector('.status-dot').classList.add('bg-slate-300');
-            });
-            const activeBtn = document.getElementById(`btn-${channelId}`);
-            if (activeBtn) {
-                activeBtn.classList.add('border-green-500', 'bg-green-50/50', 'text-green-700');
-                activeBtn.querySelector('.status-dot').classList.remove('bg-slate-300');
-                activeBtn.querySelector('.status-dot').classList.add('bg-green-500');
-            }
-
-            try {
-                // Cloudflare Pages ব্যাকএন্ড ফাংশন থেকে লিংক আনা
-                const response = await fetch(`/api/stream?id=${channelId}`);
-                if (!response.ok) throw new Error("Failed to fetch token");
-                
-                const data = await response.json();
-                const secureLink = data.url;
-
-                if (clapprPlayer) {
-                    clapprPlayer.destroy();
+        if (Hls.isSupported()) {
+            const hls = new Hls({
+                maxBufferLength: 10,         
+                maxMaxBufferLength: 20,
+                liveSyncDurationCount: 3,    
+                enableWorker: true,
+                lowLatencyMode: true,
+                // ⭐ অত্যন্ত গুরুত্বপূর্ণ: এটি ব্রাউজার থেকে ওয়ার্কারে কুকি পাস করবেই করবে
+                xhrSetup: function (xhr, url) {
+                    xhr.withCredentials = true; 
                 }
+            });
 
-                playerContainer.innerHTML = ""; 
-                clapprPlayer = new Clappr.Player({
-                    source: secureLink,
-                    parentId: "#player",
-                    width: "100%",
-                    height: "100%",
-                    autoPlay: true,
-                    mediacontrol: { seekbar: "#16a34a", buttons: "#ffffff" },
-                    mimeType: "application/x-mpegURL",
-                    playback: {
-                        playInline: true,
-                        recycleVideo: true
+            hls.loadSource(streamUrl);
+            hls.attachMedia(video);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                video.play().catch(e => console.log("Autoplay blocked by browser:", e));
+            });
+
+            // প্লেয়ার ক্র্যাশ করা রোধে অটো-রিকভারি লজিক
+            hls.on(Hls.Events.ERROR, function (event, data) {
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.log("Network error encountered, trying to recover...");
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log("Media error encountered, trying to recover...");
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            console.log("Unrecoverable error, restarting player...");
+                            hls.loadSource(streamUrl);
+                            break;
                     }
-                });
-
-            } catch (error) {
-                console.error("Error loading stream:", error);
-                playerContainer.innerHTML = `
-                    <div class="text-center p-4 text-red-500">
-                        <svg class="w-10 h-10 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                        <p class="text-sm font-bold">Failed to load stream</p>
-                        <p class="text-xs text-slate-500 mt-1">Please try again or check server configurations.</p>
-                    </div>
-                `;
-            }
+                }
+            });
+        } 
+        // iOS / Safari ব্রাউজারের জন্য নেটিভ সাপোর্ট
+        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = streamUrl;
+            video.addEventListener('loadedmetadata', function () {
+                video.play();
+            });
         }
-
-        // পেজ লোড হলে ডিফল্ট চ্যানেল হিসেবে galaxytv চালু হবে
-        window.onload = function() {
-            playLiveStream("galaxytv"); 
-        };
     </script>
 </body>
 </html>
