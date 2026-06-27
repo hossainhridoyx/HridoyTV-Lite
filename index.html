@@ -3,35 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HridoyTV Live Stream</title>
+    <title>HridoyTV Live - Premium Player</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0f172a; }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen p-4 sm:p-6">
+<body class="bg-slate-900 text-white min-h-[100dvh] flex flex-col items-center justify-center p-4 sm:p-6">
 
-    <div class="w-full max-w-4xl bg-black rounded-3xl overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-slate-800 relative group">
-        <video id="video" controls class="w-full aspect-video object-contain" autoplay playsinline preload="auto"></video>
+    <div class="w-full max-w-3xl bg-slate-800 rounded-3xl p-4 sm:p-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-slate-700/50">
+        
+        <div class="flex items-center justify-between mb-4 px-2">
+            <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
+                <h1 class="text-lg sm:text-xl font-bold tracking-wider text-green-400">HRIDOY<span class="text-white">TV LIVE</span></h1>
+            </div>
+            <span id="status" class="text-xs bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full font-semibold border border-amber-500/30">Connecting...</span>
+        </div>
+        
+        <div class="relative rounded-2xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-slate-950 shadow-inner">
+            
+            <video id="video" controls class="w-full h-full object-contain hidden" autoplay playsinline preload="auto"></video>
+            
+            <div id="placeholder-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 p-6 text-center z-20">
+                <div id="loading-spinner" class="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p id="status-text" class="text-sm sm:text-base text-slate-300 font-medium">লাইভ স্ট্রিম সংযোগ করা হচ্ছে, দয়া করে অপেক্ষা করুন...</p>
+            </div>
+
+        </div>
     </div>
 
     <script>
         const video = document.getElementById('video');
+        const statusBadge = document.getElementById('status');
+        const placeholderScreen = document.getElementById('placeholder-screen');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const statusText = document.getElementById('status-text');
         
-        // ⚠️ আপনার ক্লাউডফ্লেয়ার ওয়ার্কারের ফাইনাল M3U8 লিংকটি এখানে বসান
+        // ⚠️ এখানে আপনার ক্লাউডফ্লেয়ার ওয়ার্কারের সঠিক M3U8 লিংকটি দিন
         const streamUrl = 'https://YOUR_WORKER_SUBDOMAIN.workers.dev/channel_key.m3u8'; 
+
+        function setPlayerError(msg) {
+            loadingSpinner.classList.add('hidden');
+            placeholderScreen.classList.remove('hidden');
+            video.classList.add('hidden');
+            statusText.innerHTML = `<span class="text-red-400 font-bold">Error:</span> ${msg}`;
+            statusBadge.textContent = "Failed";
+            statusBadge.className = "text-xs bg-red-500/20 text-red-400 px-3 py-1 rounded-full font-semibold border border-red-500/30";
+        }
 
         if (Hls.isSupported()) {
             const hls = new Hls({
-                maxBufferLength: 10,         
+                maxBufferLength: 10,
                 maxMaxBufferLength: 20,
-                liveSyncDurationCount: 3,    
+                liveSyncDurationCount: 3,
                 enableWorker: true,
                 lowLatencyMode: true,
-                // ⭐ অত্যন্ত গুরুত্বপূর্ণ: এটি ব্রাউজার থেকে ওয়ার্কারে কুকি পাস করবেই করবে
                 xhrSetup: function (xhr, url) {
-                    xhr.withCredentials = true; 
+                    xhr.withCredentials = true; // কুকি পাসিং সিস্টেম এনাবল্ড
                 }
             });
 
@@ -39,35 +69,53 @@
             hls.attachMedia(video);
 
             hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                video.play().catch(e => console.log("Autoplay blocked by browser:", e));
+                // ভিডিও সাকসেসফুলি লোড হলে লোডিং স্ক্রিন চলে যাবে
+                placeholderScreen.classList.add('hidden');
+                video.classList.remove('hidden');
+                statusBadge.textContent = "Live";
+                statusBadge.className = "text-xs bg-green-500/20 text-green-400 px-3 py-1 rounded-full font-semibold border border-green-500/30";
+                
+                video.play().catch(e => {
+                    console.log("Autoplay blocked");
+                    // ব্রাউজার অটো-প্লে ব্লক করলে প্লে বাটন দেখাবে
+                });
             });
 
-            // প্লেয়ার ক্র্যাশ করা রোধে অটো-রিকভারি লজিক
+            // রিয়েল-টাইম এরর হ্যান্ডলিং ও অটো রিকভারি
             hls.on(Hls.Events.ERROR, function (event, data) {
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
-                            console.log("Network error encountered, trying to recover...");
+                            statusText.textContent = "নেটওয়ার্ক সমস্যা! পুনরায় চেষ্টা করা হচ্ছে...";
                             hls.startLoad();
                             break;
                         case Hls.ErrorTypes.MEDIA_ERROR:
-                            console.log("Media error encountered, trying to recover...");
+                            statusText.textContent = "মিডিয়া প্রসেসিং সমস্যা! রিকভার করা হচ্ছে...";
                             hls.recoverMediaError();
                             break;
                         default:
-                            console.log("Unrecoverable error, restarting player...");
-                            hls.loadSource(streamUrl);
+                            setPlayerError("স্ট্রিমটি লোড করা যাচ্ছে না। ডোমেইন লক অথবা লিংক ভুল হতে পারে।");
+                            hls.destroy();
                             break;
                     }
                 }
             });
         } 
-        // iOS / Safari ব্রাউজারের জন্য নেটিভ সাপোর্ট
+        // iOS Safari / Mac এর নেটিভ সাপোর্ট
         else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = streamUrl;
             video.addEventListener('loadedmetadata', function () {
+                placeholderScreen.classList.add('hidden');
+                video.classList.remove('hidden');
+                statusBadge.textContent = "Live";
+                statusBadge.className = "text-xs bg-green-500/20 text-green-400 px-3 py-1 rounded-full font-semibold border border-green-500/30";
                 video.play();
             });
+            video.addEventListener('error', function() {
+                setPlayerError("iOS প্লেয়ার লোড হতে ব্যর্থ হয়েছে।");
+            });
+        } else {
+            setPlayerError("আপনার ব্রাউজারটি এই লাইভ প্লেয়ারটি সাপোর্ট করে না।");
         }
     </script>
 </body>
