@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HridoyTV Lite - Premium Live Streaming</title>
-    <script src="https://cdn.tailwindcss.com"></script> 
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     
@@ -21,7 +21,7 @@
         /* Custom aspect ratio for responsive video */
         .video-container {
             position: relative;
-            padding-bottom: 56.25%; /* 16:9 */
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
             height: 0;
             overflow: hidden;
         }
@@ -93,7 +93,7 @@
                     </div>
                 </button>
 
-                </div>
+            </div>
         </div>
 
     </main>
@@ -111,65 +111,107 @@
         const video = document.getElementById('videoPlayer');
         const channelTitle = document.getElementById('currentChannelName');
         let hls = null;
+        let networkRetryCount = 0;
 
         async function loadSecureStream(kvKey, displayName) {
-            // UI আপডেট এবং লোডিং স্টেট দেখানোর জন্য
             channelTitle.textContent = `Loading ${displayName}...`;
+            networkRetryCount = 0; // রিকানেক্ট কাউন্টার রিসেট করা হলো
             
-            // অ্যাক্টিভ বাটনের স্টাইল চেঞ্জ করার লজিক (ঐচ্ছিক)
+            // সিলেক্টেড বাটনের বর্ডার হাইলাইট পরিবর্তন লজিক
             document.querySelectorAll('.channel-btn').forEach(btn => {
                 btn.classList.remove('border-green-500', 'bg-green-50/50');
             });
-            event.currentTarget.classList.add('border-green-500', 'bg-green-50/50');
+            if(event && event.currentTarget) {
+                event.currentTarget.classList.add('border-green-500', 'bg-green-50/50');
+            }
 
             try {
-                // আপনার ক্লাউডফ্লেয়ার পেজেস ফাংশন এপিআই কল করা হচ্ছে
+                // আপনার ক্লাউডফ্লেয়ার পেজেস ফাংশন ব্যাকএন্ড কল করা হচ্ছে
                 const response = await fetch(`/api/getstream?key=${kvKey}`);
                 if (!response.ok) throw new Error('Network response was not ok');
                 
                 const data = await response.json();
-                
-                if (!data.url) {
-                    throw new Error('Secure URL not found in API response');
-                }
+                if (!data.url) throw new Error('Secure URL not found');
 
                 const secureUrl = data.url;
-                console.log("Playing:", secureUrl);
+                console.log("Playing Secure Stream URL:", secureUrl);
 
-                // আগের HLS ইন্সট্যান্স থাকলে তা ডেস্ট্রয় করা
+                // আগের চলমান কোনো স্ট্রিম থাকলে তা বন্ধ ও ক্লিনআপ করা
                 if (hls) {
                     hls.destroy();
                 }
 
-                // Hls.js দিয়ে স্ট্রিম প্লে করা (ব্রাউজার যদি Native M3U8 সাপোর্ট না করে যেমন: Chrome/PC)
                 if (Hls.isSupported()) {
+                    // বাফার টিউনিং এবং লাইভ অপ্টিমাইজেশন
                     hls = new Hls({
-                        maxMaxBufferLength: 10, // ফাস্ট লোডিং এর জন্য বাফার অপ্টিমাইজেশন
-                        enableWorker: true
+                        maxMaxBufferLength: 15, // লাইভ ড্রপ হ্যান্ডেল করতে বাফার বাড়ানো হলো
+                        enableWorker: true,
+                        lowLatencyMode: true,
+                        backBufferLength: 30
                     });
+                    
                     hls.loadSource(secureUrl);
                     hls.attachMedia(video);
+                    
                     hls.on(Hls.Events.MANIFEST_PARSED, function() {
                         video.play().catch(e => console.log("Autoplay blocked, waiting for user click"));
                         channelTitle.textContent = displayName;
                     });
                     
+                    // 🛡️ শক্তিশালী অটো-রিকানেক্ট ও স্মার্ট এরর রিকভারি সিস্টেম
                     hls.on(Hls.Events.ERROR, function (event, data) {
                         if (data.fatal) {
-                            console.error("Fatal player error, trying to recover...");
-                            channelTitle.textContent = "Stream Error! Reconnecting...";
-                            hls.recoverMediaError();
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    // নেটওয়ার্ক সাময়িক ড্রপ করলে বা জ্যাগোবিডি স্লো রেসপন্স করলে পুনরায় ডাটা টানবে
+                                    console.log("Fatal network error detected, trying to recover...");
+                                    channelTitle.textContent = "Stream Glitch! Reconnecting...";
+                                    hls.startLoad();
+                                    break;
+                                    
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    // ভিডিও বাফারিং বা মিডিয়া ফরম্যাট রিকভার করবে
+                                    console.log("Fatal media error detected, trying to recover...");
+                                    channelTitle.textContent = "Fixing media buffer...";
+                                    hls.recoverMediaError();
+                                    break;
+                                    
+                                default:
+                                    // যদি কোনোভাবেই ঠিক না হয়, তবে ৩ সেকেন্ড পর পুরো চ্যানেলটি হার্ড রিলোড করবে
+                                    console.log("Unrecoverable error. Hard reloading stream...");
+                                    channelTitle.textContent = "Stream Error! Reloading...";
+                                    if(networkRetryCount < 5) {
+                                        networkRetryCount++;
+                                        setTimeout(() => {
+                                            loadSecureStream(kvKey, displayName);
+                                        }, 3000);
+                                    } else {
+                                        channelTitle.textContent = "Stream offline. Try again later.";
+                                        hls.destroy();
+                                    }
+                                    break;
+                            }
                         }
                     });
 
                 } 
-                // সাফারি বা আইফোনের মতো ব্রাউজারে যেখানে ডিরেক্ট ম্যাপ করা যায়
+                // আইফোন/সাফারি ব্রাউজারের নেটিভ সাপোর্ট হ্যান্ডলার
                 else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = secureUrl;
                     video.addEventListener('loadedmetadata', function() {
                         video.play();
                         channelTitle.textContent = displayName;
                     });
+                    
+                    // নেটিভ প্লেয়ারের এরর রিকভারি
+                    video.onerror = function() {
+                        channelTitle.textContent = "Stream Error! Retrying...";
+                        setTimeout(() => {
+                            video.src = secureUrl;
+                            video.load();
+                            video.play();
+                        }, 3000);
+                    };
                 } else {
                     channelTitle.textContent = "Your browser does not support HLS streaming.";
                 }
@@ -179,9 +221,6 @@
                 channelTitle.textContent = "Failed to load channel. Try again.";
             }
         }
-
-        // পেজ লোড হওয়ার সাথে সাথে প্রথম চ্যানেলটি অটোমেটিক চালু করতে চাইলে নিচের লাইনটি আনকমেন্ট করতে পারেন
-        // window.onload = () => loadSecureStream('channeli.m3u8', 'Channel I HD');
     </script>
 </body>
 </html>
