@@ -1,14 +1,44 @@
-<video id="player" controls autoplay playsinline></video>
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HridoyTV Lite</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+body{
+margin:0;
+background:#000;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+video{
+width:100%;
+height:100%;
+background:#000;
+}
+</style>
+</head>
+<body>
+
+<video id="video" controls autoplay playsinline></video>
+
 <script>
-const url = "https://hridoytvlite.pages.dev/channeli";
+const channel = "channeli"; // এখানে Channel ID দিন
+const url = `https://hridoytvlite.pages.dev/${channel}`;
+
+const video = document.getElementById("video");
 
 if (Hls.isSupported()) {
-    const hls = new Hls();
-    hls.loadSource(url);
-    hls.attachMedia(document.getElementById("player"));
-} else {
-    document.getElementById("player").src = url;
+  const hls = new Hls();
+  hls.loadSource(url);
+  hls.attachMedia(video);
+} else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+  video.src = url;
 }
 </script>
+
+</body>
+</html>
