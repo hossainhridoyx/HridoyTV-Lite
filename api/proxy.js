@@ -1,18 +1,22 @@
-export default async function handler(req, res) {
-  const target =
-    "http://cdn.moviemazic.xyz:8083/NagorikTV/index.m3u8";
+module.exports = async (req, res) => {
+  const target = "http://cdn.moviemazic.xyz:8083/NagorikTV/index.m3u8";
 
   try {
+    const headers = {};
+
+    if (req.headers["user-agent"])
+      headers["User-Agent"] = req.headers["user-agent"];
+
+    if (req.headers["range"])
+      headers["Range"] = req.headers["range"];
+
+    headers["Accept"] = "*/*";
+    headers["Referer"] = target;
+    headers["Origin"] = "http://cdn.moviemazic.xyz:8083";
+
     const response = await fetch(target, {
-      headers: {
-        "User-Agent":
-          req.headers["user-agent"] ||
-          "Mozilla/5.0",
-        "Accept": "*/*",
-        "Referer": target,
-        "Origin": "http://cdn.moviemazic.xyz:8083",
-        "Range": req.headers["range"] || "bytes=0-"
-      },
+      method: "GET",
+      headers,
       redirect: "follow",
     });
 
@@ -27,11 +31,12 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Headers", "*");
 
     const buffer = Buffer.from(await response.arrayBuffer());
-    res.send(buffer);
+    res.end(buffer);
 
-  } catch (err) {
+  } catch (e) {
     res.status(500).json({
-      error: err.message
+      success: false,
+      error: e.message
     });
   }
-}
+};
