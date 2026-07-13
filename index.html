@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html
 <html lang="bn">
 <head>
 <meta charset="UTF-8"><meta name="google-site-verification" content="gZ9YQNI40YDh_oaGrZdBt71fyAncIf19Wj_JBaFe3N8" />
@@ -4771,9 +4771,15 @@ searchResults.addEventListener('click',e=>{
 async function loadChannels(){
     const grid = document.getElementById('chGrid');
     try {
-      const tokenRes = await fetch('https://api2.hridoytvott.workers.dev/get-token');
+      const cfgRes = await fetch('https://hridoytv-config.pages.dev/config.json', {cache:'no-store'});
+      if(!cfgRes.ok) throw new Error('Config HTTP '+cfgRes.status);
+      const cfg = await cfgRes.json();
+      const masterApi = cfg.masterWorker;
+      if(!masterApi) throw new Error('masterWorker not found in config');
+
+      const tokenRes = await fetch(masterApi + '/get-token');
       const { token, expires } = await tokenRes.json();
-      const M3U_URL = `https://api2.hridoytvott.workers.dev/master.m3u?token=${token}&expires=${expires}`;
+      const M3U_URL = `${masterApi}/master.m3u?token=${token}&expires=${expires}`;
       const resp = await fetch(M3U_URL, {cache:'no-store'});
       if(!resp.ok) throw new Error('HTTP '+resp.status);
       const text = await resp.text();
