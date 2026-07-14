@@ -1461,7 +1461,8 @@ input.pc-vol::-webkit-slider-thumb{
   backdrop-filter:blur(24px);
   -webkit-backdrop-filter:blur(24px);
 }
-.serr-btns{display:flex;flex-direction:row;gap:7px;align-items:center;justify-content:center;width:100%;}
+.serr-header{display:flex;flex-direction:row;align-items:center;gap:10px;width:100%;}
+.serr-btns{display:flex;flex-direction:column;gap:7px;align-items:center;justify-content:center;width:100%;}
 .serr-ico{
   width:40px;height:40px;border-radius:50%;
   background:rgba(255,80,80,.12);
@@ -2905,17 +2906,19 @@ body.app-mode .right-panel{border-left:none;}
     <!-- Stream error card -->
     <div id="streamErrOv">
       <div class="serr-card">
-        <div class="serr-ico">📡</div>
-        <div class="serr-title">Stream Unavailable</div>
+        <div class="serr-header">
+          <div class="serr-ico">📡</div>
+          <div class="serr-title">Stream Unavailable</div>
+        </div>
         <div class="serr-btns">
-          <a class="serr-link" href="https://t.me/hossain_hridoy" target="_blank" rel="noopener noreferrer">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-1.97 9.289c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.48 14.317l-2.95-.924c-.641-.204-.654-.641.136-.953l11.527-4.445c.537-.194 1.006.131.369.253z"/></svg>
-            Support on Telegram
-          </a>
           <button class="serr-fix-btn" onclick="openModal('streamfix')">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             How to fix?
           </button>
+          <a class="serr-link" href="https://t.me/hossain_hridoy" target="_blank" rel="noopener noreferrer">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-1.97 9.289c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.48 14.317l-2.95-.924c-.641-.204-.654-.641.136-.953l11.527-4.445c.537-.194 1.006.131.369.253z"/></svg>
+            Support on Telegram
+          </a>
         </div>
       </div>
     </div>
