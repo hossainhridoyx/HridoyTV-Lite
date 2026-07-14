@@ -1484,6 +1484,20 @@ input.pc-vol::-webkit-slider-thumb{
   transition:background .18s,color .18s;
 }
 .serr-link:hover,.serr-link:active{background:rgba(255,255,255,.16);color:#fff;}
+.serr-fix-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:7px 14px;
+  background:rgba(15,181,72,.10);
+  border:1px solid rgba(15,181,72,.28);
+  border-radius:999px;
+  font-size:.66rem;font-weight:600;
+  color:#0fb548;
+  letter-spacing:.01em;
+  cursor:pointer;
+  transition:background .18s,color .18s;
+  font-family:inherit;
+}
+.serr-fix-btn:hover,.serr-fix-btn:active{background:rgba(15,181,72,.22);color:#0fb548;}
 
 /* ── HTTP Block Overlay (player-এর ভেতরে, browser only) ── */
 #httpBlockOv{
@@ -2896,6 +2910,10 @@ body.app-mode .right-panel{border-left:none;}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-1.97 9.289c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.48 14.317l-2.95-.924c-.641-.204-.654-.641.136-.953l11.527-4.445c.537-.194 1.006.131.369.253z"/></svg>
           Support on Telegram
         </a>
+        <button class="serr-fix-btn" onclick="openModal('streamfix')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          How to fix?
+        </button>
       </div>
     </div>
 
@@ -3349,6 +3367,56 @@ body.app-mode .right-panel{border-left:none;}
         <p>HridoyTV কোনো tracking cookie ব্যবহার করে না। শুধুমাত্র আপনার ব্রাউজারের Local Storage-এ প্লেয়ার পছন্দ সংরক্ষিত হয়।</p>
       </div>
       <p style="font-size:.72rem;color:var(--tx3);text-align:center;">প্রশ্ন থাকলে → <a href="https://t.me/hossain_hridoy" target="_blank" style="color:#29b6f6;text-decoration:none;">@hossain_hridoy</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Stream Fix Modal ══ -->
+<div class="modal-overlay" id="modal-streamfix">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        চ্যানেল প্লে হচ্ছে না?
+      </div>
+      <button class="modal-close-btn" onclick="closeModal('streamfix')" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+
+      <h3>📺 কেন চ্যানেলটি প্লে হচ্ছে না?</h3>
+      <p>চ্যানেল প্লে না হওয়ার সম্ভাব্য কারণগুলো:</p>
+      <ul>
+        <li>স্ট্রিম লিংক ডেড অথবা চ্যানেলটি সাময়িকভাবে অফলাইন থাকতে পারে।</li>
+        <li>ইন্টারনেট সংযোগ দুর্বল বা বিচ্ছিন্ন হতে পারে। অনুগ্রহ করে আপনার নেটওয়ার্ক সংযোগ পরীক্ষা করুন।</li>
+        <li>অ্যাপ বা ওয়েবসাইটের ক্যাশ/সেশন সমস্যা হতে পারে।</li>
+        <li>সার্ভার মেইনটেন্যান্স বা সাময়িক প্রযুক্তিগত সমস্যার কারণে চ্যানেলটি অনুপলব্ধ থাকতে পারে।</li>
+        <li>VPN, Proxy, Ad Blocker বা Custom DNS ব্যবহারের কারণে কিছু স্ট্রিম ব্লক হতে পারে।</li>
+        <li>আপনি যদি বাংলাদেশের বাইরে থাকেন, তাহলে কিছু বাংলাদেশি টিভি চ্যানেল ভৌগোলিক সীমাবদ্ধতার (Geo-Restriction) কারণে প্লে নাও হতে পারে। এ ক্ষেত্রে বাংলাদেশের একটি VPN Server ব্যবহার করে পুনরায় চেষ্টা করুন।</li>
+      </ul>
+
+      <h3>🔧 কীভাবে সমস্যার সমাধান করবেন?</h3>
+      <div class="modal-step"><div class="modal-step-num">✅</div><div class="modal-step-txt">আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন।</div></div>
+      <div class="modal-step"><div class="modal-step-num">✅</div><div class="modal-step-txt">অ্যাপ ব্যবহার করলে: অ্যাপটি সম্পূর্ণ বন্ধ (Force Close) করে পুনরায় চালু করুন।</div></div>
+      <div class="modal-step"><div class="modal-step-num">✅</div><div class="modal-step-txt">ওয়েবসাইট ব্যবহার করলে: পুরো ওয়েবসাইট Reload / Refresh করুন।</div></div>
+      <div class="modal-step"><div class="modal-step-num">✅</div><div class="modal-step-txt">প্রয়োজনে অন্য একটি নেটওয়ার্ক (Wi-Fi / Mobile Data) দিয়ে চেষ্টা করুন।</div></div>
+      <div class="modal-step"><div class="modal-step-num">✅</div><div class="modal-step-txt">VPN বা Ad Blocker ব্যবহার করলে সাময়িকভাবে বন্ধ করুন। তবে বাংলাদেশের বাইরে থাকলে বাংলাদেশি VPN Server ব্যবহার করুন।</div></div>
+      <div class="modal-step"><div class="modal-step-num">✅</div><div class="modal-step-txt">কয়েক মিনিট অপেক্ষা করে আবার চেষ্টা করুন, কারণ চ্যানেলটি সাময়িকভাবে অফলাইন থাকতে পারে।</div></div>
+      <div class="modal-step"><div class="modal-step-num">✅</div><div class="modal-step-txt">সমস্যা সমাধান না হলে HridoyTV Support বা Admin-এর সাথে যোগাযোগ করুন।</div></div>
+
+      <div class="modal-notice" style="margin-top:14px;">
+        <strong>⭐ সবচেয়ে কার্যকর সমাধান</strong><br>
+        <span style="display:block;margin-top:6px;">• অ্যাপ ব্যবহার করলে: অ্যাপটি সম্পূর্ণ বন্ধ করে পুনরায় চালু করুন।</span>
+        <span style="display:block;margin-top:4px;">• ওয়েবসাইট ব্যবহার করলে: পুরো ওয়েবসাইট Reload / Refresh করুন।</span>
+        <span style="display:block;margin-top:4px;">• বাংলাদেশের বাইরে থাকলে: একটি বাংলাদেশি VPN Server ব্যবহার করে পুনরায় চেষ্টা করুন।</span>
+        <span style="display:block;margin-top:6px;font-size:.72rem;opacity:.8;">বেশিরভাগ ক্ষেত্রে উপরোক্ত পদক্ষেপগুলো অনুসরণ করলে সমস্যার সমাধান হয়ে যায়।</span>
+      </div>
+
+      <a class="modal-tg-btn" href="https://t.me/hossain_hridoy" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
+        Support on Telegram
+      </a>
+
     </div>
   </div>
 </div>
