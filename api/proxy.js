@@ -1,18 +1,53 @@
+export const config = {
+  runtime: "nodejs",
+};
+
 export default async function handler(req, res) {
-  // আপনার আসল লিঙ্ক যা ব্যাকএন্ডে ১০০% লক এবং হাইড থাকবে
-  const targetUrl = 'http://moviemazic.xyz';
+  const url = req.query.url;
+
+  if (!url) {
+    return res.status(400).send("Missing url");
+  }
 
   try {
-    const response = await fetch(targetUrl);
-    const data = await response.text();
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0",
+        "Referer": "http://cdn.moviemazic.xyz:8083/",
+        "Origin": "http://cdn.moviemazic.xyz:8083/"
+      }
+    });
 
-    // সঠিক হেডার সেট করা যেন যেকোনো প্লেয়ারে লাইভ চালু হয়
-    res.setHeader('Content-Type', 'application/x-mpegURL');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'no-cache');
+    const contentType =
+      response.headers.get("content-type") ||
+      "application/octet-stream";
 
-    return res.status(200).send(data);
-  } catch (error) {
-    return res.status(500).send('Streaming proxy connection failed');
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Content-Type", contentType);
+
+    let body = await response.text();
+
+    if (contentType.includes("application/vnd.apple.mpegurl") ||
+        contentType.includes("application/x-mpegURL")) {
+
+      const base = new URL(url);
+
+      body = body.replace(
+        /^([^#].*)$/gm,
+        (line) => {
+          if (!line.trim()) return line;
+
+          const absolute = new URL(line, base).toString();
+
+          return `/api/proxy?url=${encodeURIComponent(absolute)}`;
+        }
+      );
+    }
+
+    res.send(body);
+
+  } catch (e) {
+    res.status(500).send(e.message);
   }
 }
