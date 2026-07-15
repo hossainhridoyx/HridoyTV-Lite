@@ -1,9 +1,7 @@
 {
-  "version": 2,
-  "routes": [
-    {
-      "src": "/stream.m3u8",
-      "dest": "/api/proxy.js"
+  "functions": {
+    "api/proxy.js": {
+      "maxDuration": 60
     }
-  ]
+  }
 }
