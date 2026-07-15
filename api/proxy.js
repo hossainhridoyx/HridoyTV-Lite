@@ -1,53 +1,40 @@
-export const config = {
-  runtime: "nodejs",
-};
-
-export default async function handler(req, res) {
-  const url = req.query.url;
-
-  if (!url) {
-    return res.status(400).send("Missing url");
+const response = await fetch(url, {
+  redirect: "follow",
+  headers: {
+    "User-Agent": "Mozilla/5.0",
+    "Referer": "http://cdn.moviemazic.xyz:8083/",
+    "Origin": "http://cdn.moviemazic.xyz:8083/"
   }
+});
 
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0",
-        "Referer": "http://cdn.moviemazic.xyz:8083/",
-        "Origin": "http://cdn.moviemazic.xyz:8083/"
-      }
-    });
-
-    const contentType =
-      response.headers.get("content-type") ||
-      "application/octet-stream";
-
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Content-Type", contentType);
-
-    let body = await response.text();
-
-    if (contentType.includes("application/vnd.apple.mpegurl") ||
-        contentType.includes("application/x-mpegURL")) {
-
-      const base = new URL(url);
-
-      body = body.replace(
-        /^([^#].*)$/gm,
-        (line) => {
-          if (!line.trim()) return line;
-
-          const absolute = new URL(line, base).toString();
-
-          return `/api/proxy?url=${encodeURIComponent(absolute)}`;
-        }
-      );
-    }
-
-    res.send(body);
-
-  } catch (e) {
-    res.status(500).send(e.message);
-  }
+if (!response.ok) {
+  return res.status(response.status).send(await response.text());
 }
+
+const contentType = response.headers.get("content-type") || "";
+
+res.setHeader("Access-Control-Allow-Origin", "*");
+res.setHeader("Content-Type", contentType);
+
+if (
+  contentType.includes("mpegurl") ||
+  url.endsWith(".m3u8")
+) {
+  let body = await response.text();
+
+  const base = new URL(url);
+
+  body = body.replace(/^([^#].*)$/gm, (line) => {
+    if (!line.trim()) return line;
+
+    return `/api/proxy?url=${encodeURIComponent(
+      new URL(line, base).toString()
+    )}`;
+  });
+
+  return res.send(body);
+}
+
+// বাইনারি ফাইল (.ts, .key, .m4s)
+const buffer = Buffer.from(await response.arrayBuffer());
+return res.send(buffer);
