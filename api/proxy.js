@@ -1,40 +1,28 @@
-const response = await fetch(url, {
-  redirect: "follow",
-  headers: {
-    "User-Agent": "Mozilla/5.0",
-    "Referer": "http://cdn.moviemazic.xyz:8083/",
-    "Origin": "http://cdn.moviemazic.xyz:8083/"
+// api/proxy.js
+
+export default async function handler(req, res) {
+  // আপনার টার্গেট URL
+  const targetUrl = 'https://madanitv.assadikb.workers.dev/live.php?id=756&e=.m3u8';
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0'
+      }
+    });
+
+    // CORS হেডার যুক্ত করা যাতে যেকোনো সাইট থেকে এটি ব্যবহার করা যায়
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Content-Type', response.headers.get('Content-Type'));
+
+    // বাফার আকারে ডেটা রিটার্ন করা
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    return res.status(200).send(buffer);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to fetch the stream' });
   }
-});
-
-if (!response.ok) {
-  return res.status(response.status).send(await response.text());
 }
-
-const contentType = response.headers.get("content-type") || "";
-
-res.setHeader("Access-Control-Allow-Origin", "*");
-res.setHeader("Content-Type", contentType);
-
-if (
-  contentType.includes("mpegurl") ||
-  url.endsWith(".m3u8")
-) {
-  let body = await response.text();
-
-  const base = new URL(url);
-
-  body = body.replace(/^([^#].*)$/gm, (line) => {
-    if (!line.trim()) return line;
-
-    return `/api/proxy?url=${encodeURIComponent(
-      new URL(line, base).toString()
-    )}`;
-  });
-
-  return res.send(body);
-}
-
-// বাইনারি ফাইল (.ts, .key, .m4s)
-const buffer = Buffer.from(await response.arrayBuffer());
-return res.send(buffer);
