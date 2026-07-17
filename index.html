@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U8 Proxy Test</title>
+    <!-- HLS.js লাইব্রেরি (m3u8 প্লে করার জন্য) -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <h2>Madani TV Proxy Stream</h2>
+    <video id="video" controls autoplay width="640" height="360"></video>
+
+    <script>
+        var video = document.getElementById('video');
+        // এখানে আপনার Vercel ডেপ্লয় করা প্রক্সি ইউআরএলটি হবে
+        var videoSrc = '/api/proxy'; 
+
+        if (Hls.isSupported()) {
+            var hls = new Hls();
+            hls.loadSource(videoSrc);
+            hls.attachMedia(video);
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = videoSrc;
+        }
+    </script>
+</body>
+</html>
