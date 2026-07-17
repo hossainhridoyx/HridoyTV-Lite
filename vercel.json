@@ -1,7 +1,7 @@
 {
   "functions": {
-    "api/proxy.js": {
-      "maxDuration": 60
+    "api/live.m3u8.js": {
+      "maxDuration": 10
     }
   }
 }
