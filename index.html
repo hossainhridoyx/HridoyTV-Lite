@@ -138,22 +138,6 @@
     font-family: var(--font);
     display: flex;
     flex-direction: column;
-    text-rendering: optimizeSpeed;
-    -webkit-font-smoothing: antialiased;
-    transform: translate3d(0,0,0); /* Force GPU acceleration */
-  }
-
-  /* PERF: Containment for layout optimization */
-  .grid, .sidebar, .content-area, #player-wrap {
-    contain: content;
-  }
-
-  .nav-ticker {
-    display: inline-flex;
-    white-space: nowrap;
-    will-change: transform;
-    animation: navTicker 28s linear infinite;
-    transform: translate3d(0,0,0);
   }
 
   /* ── Navbar ── */
@@ -547,7 +531,15 @@
     text-align: center;
     cursor: pointer;
     outline: none;
-    will-change: transform;
+    /* PERF FIX #8: `will-change: transform` used to sit here on the BASE
+       rule, which applies to every single channel card in the grid — on a
+       list of a few hundred channels that silently promotes a few hundred
+       elements to their own GPU compositor layer, permanently, even for
+       cards that are never focused or hovered. That is the single biggest
+       cause of TV-wide hangs: the compositor has to track hundreds of live
+       layers just sitting there. `will-change` is now applied ONLY to the
+       one card that is actually focused/hovered (see rules below), so at
+       most 1-2 layers exist at any time instead of hundreds. */
     transition: transform 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease;
     position: relative;
     z-index: 1;
@@ -560,9 +552,7 @@
   body:not(.kb-mode) .card:hover {
     border: 2.5px solid var(--focus);
     background: #0f0f0f;
-    box-shadow:
-      0 0 20px rgba(0, 230, 118, 0.4),
-      0 6px 20px rgba(0, 0, 0, 0.65);
+    box-shadow: 0 0 16px rgba(0, 230, 118, 0.4);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
     z-index: 5;
   }
@@ -570,10 +560,11 @@
   .card.kbfocus {
     border: 2.5px solid var(--focus);
     background: #111111;
-    box-shadow:
-      0 0 26px rgba(0, 230, 118, 0.5),
-      0 10px 30px rgba(0, 0, 0, 0.75);
+    box-shadow: 0 0 18px rgba(0, 230, 118, 0.5);
     transform: scale(1.1);
+    /* PERF FIX #8: will-change scoped to just the focused card, and only
+       while it is actually animating in/out of focus. */
+    will-change: transform;
     transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
     z-index: 6;
   }
@@ -1563,7 +1554,10 @@
   #main-ui {
     transition: filter 0.28s ease;
     filter: none;
-    will-change: filter;
+    /* PERF FIX #8: will-change removed — #main-ui wraps the ENTIRE sidebar +
+       channel grid subtree, so promoting it to a compositor layer promotes
+       that whole subtree (every card inside it) into GPU memory too. The
+       brightness dim on popup-open is cheap enough without it. */
   }
   /* PERF FIX #4: the blur() component of these two filters was the same kind
      of GPU-heavy blur as backdrop-filter (a full-screen blur every time a
@@ -2733,6 +2727,7 @@ let qualityPanelOpen  = false;
 let qualityFocusIdx   = 0;
 let qualityLevels     = [];
 
+const mainUiEl        = document.getElementById('main-ui');
 const sidebar         = document.getElementById('sidebar');
 const catList         = document.getElementById('cat-list');
 const addFavsBtn      = document.getElementById('add-favs-btn');
@@ -3225,7 +3220,7 @@ async function loadPlaylist() {
   }
 }
 
-async function parseM3U(text) {
+function parseM3U(text) {
   try {
     const normalized = text.replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB]/g, '"');
     const lines = normalized.split(/\r?\n/);
@@ -3234,11 +3229,7 @@ async function parseM3U(text) {
     let pendingGroup = null;
     const chMap = new Map();
 
-    // Process in chunks to avoid blocking UI
-    const CHUNK = 500;
     for (let i = 0; i < lines.length; i++) {
-      if (i > 0 && i % CHUNK === 0) await new Promise(r => setTimeout(r, 0));
-      
       const line = lines[i].trim();
       if (!line) continue;
       if (/^#EXTGRP\s*:/i.test(line)) {
@@ -3288,35 +3279,31 @@ async function parseM3U(text) {
 
     channels = Array.from(chMap.values());
     if (channels.length === 0) { showStateError('কোনো চ্যানেল পাওয়া যায়নি।'); return; }
-    
-    // Continue processing...
-    await new Promise(r => setTimeout(r, 0));
-    
     try {
       const savedFavorites = JSON.parse(localStorage.getItem('hridoytv-favorites') || '[]');
       favoriteChannels = Array.isArray(savedFavorites)
-        ? savedFavorites.filter(name => channels.some(ch => ch.name === name))
+        ? savedFavorites.filter(function(name) { return channels.some(function(ch) { return ch.name === name; }); })
         : [];
     } catch (_) {
       favoriteChannels = [];
     }
 
-    channels.forEach(c => {
-      (c.categories || [c.category]).forEach(cat => { if (cat) catSet.add(cat); });
+    channels.forEach(function(c) {
+      (c.categories || [c.category]).forEach(function(cat) { if (cat) catSet.add(cat); });
     });
-    const catListNames = Array.from(catSet).filter(Boolean);
+    const catList = Array.from(catSet).filter(Boolean);
     const CAT_ORDER = ['Pinned','Sports','News','Bangla','Indian Bangla','Movies','Kids','Entertainment','Lifestyle/Doc','Religious','International','Other'];
     function catOrderIdx(name) {
       const nl = name.toLowerCase();
       for (let i = 0; i < CAT_ORDER.length; i++) { if (CAT_ORDER[i].toLowerCase() === nl) return i; }
       return 999;
     }
-    const otherCats = catListNames.filter(c => c.toLowerCase() !== 'pinned').sort((a, b) => {
+    const otherCats = catList.filter(function(c) { return c.toLowerCase() !== 'pinned'; }).sort(function(a, b) {
       const ia = catOrderIdx(a), ib = catOrderIdx(b);
       if (ia !== ib) return ia - ib;
       return a.localeCompare(b);
     });
-    const hasPinned = catListNames.some(c => c.toLowerCase() === 'pinned');
+    const hasPinned = catList.some(function(c) { return c.toLowerCase() === 'pinned'; });
     categories = ['Favs'];
     if (hasPinned) categories.push('Pinned');
     categories.push('All Channels');
@@ -3460,68 +3447,86 @@ function updateFavoriteMarker(channelName, isFavorite) {
   });
 }
 
-// 1. DOM Element Cache - Avoid repeated querySelectorAll calls
-const Cache = {
-    cards: [],
-    catItems: [],
-    overlayCards: [],
-    infoItems: [],
-    lastUpdate: { grid: 0, sidebar: 0, overlay: 0, info: 0 }
-};
+/*
+ * PERF FIX #10: this used to build every single channel card for the active
+ * category in one synchronous forEach + appendChild — for "All Channels" on
+ * a list with a few hundred entries, that is a few hundred createElement +
+ * addEventListener calls (three listeners each) all on the main thread
+ * before the browser can paint anything. On a fast machine that is invisible;
+ * on a weak TV CPU it is a multi-second freeze every time the user opens a
+ * category, which is exactly the "navigating hangs the whole TV" complaint.
+ * Now built in small chunks across animation frames (same pattern already
+ * used for the in-player channel overlay), so the very first cards paint
+ * almost immediately and the remaining ones stream in without blocking
+ * keypresses, scrolling, or anything else on the page.
+ */
+let _gridRenderToken = 0;
 
 function renderGrid() {
   hideStateMsg();
   grid.innerHTML = '';
   grid.classList.toggle('fav-picker', showingFavPicker);
-  
+  const renderToken = ++_gridRenderToken;
   if (!filteredChannels.length) {
     if (categories[catActiveIdx] === 'Favs') {
-      showStateInfo('♥', 'আপনার পছন্দের চ্যানেলগুলো এখানে সেভ করে রাখুন...');
+      showStateInfo('♥', 'আপনার পছন্দের চ্যানেলগুলো এখানে সেভ করে রাখুন, যাতে পরে দ্রুত খুঁজে পেতে পারেন। শুরু করতে উপরের Add Favs নির্বাচন করুন, তারপর তালিকা থেকে আপনার পছন্দের চ্যানেলে ক্লিক করুন। নির্বাচিত সব চ্যানেল এই Favs তালিকায় সংরক্ষিত থাকবে।');
     } else {
       showStateInfo('\u{1F4ED}', 'এই ক্যাটেগরিতে কোনো চ্যানেল নেই।');
     }
     return;
   }
 
+  const GRID_CHUNK = 24;
   const total = filteredChannels.length;
-  const CHUNK_SIZE = 40; 
-  let currentIdx = 0;
+  let i = 0;
 
-  function renderChunk() {
-    const frag = document.createDocumentFragment();
-    const end = Math.min(currentIdx + CHUNK_SIZE, total);
-    
-    for (; currentIdx < end; currentIdx++) {
-      const ch = filteredChannels[currentIdx];
-      const card = document.createElement('div');
-      card.className = 'card' + (showingFavPicker && favoriteChannels.includes(ch.name) ? ' is-favorite' : '');
-      card.tabIndex = -1;
-      
-      card.innerHTML = `
-        <img class="card-logo" src="${ch.logo || DEFAULT_LOGO}" loading="lazy" decoding="async" onerror="this.src='${DEFAULT_LOGO}'">
-        <div class="card-name">${ch.name}</div>
-        ${ch.isNew ? '<div class="card-new-badge">NEW</div>' : ''}
-      `;
-
-      const localIdx = currentIdx;
-      card.addEventListener('focus', function() { activePane = 'grid'; gridFocusIdx = localIdx; });
-      card.addEventListener('click', function() {
-        if (showingFavPicker) toggleFavorite(ch);
-        else openPlayer(channels.indexOf(ch));
-      });
-      frag.appendChild(card);
+  function buildCard(ch, idx) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.tabIndex = -1;
+    const img = document.createElement('img');
+    img.className = 'card-logo';
+    img.loading = 'lazy'; img.decoding = 'async';
+    img.src = ch.logo || DEFAULT_LOGO;
+    img.onerror = function() { img.src = DEFAULT_LOGO; };
+    const name = document.createElement('div');
+    name.className = 'card-name';
+    name.textContent = ch.name;
+    card.appendChild(img);
+    card.appendChild(name);
+    if (ch.isNew) {
+      const newBadge = document.createElement('div');
+      newBadge.className = 'card-new-badge';
+      newBadge.textContent = 'NEW';
+      card.appendChild(newBadge);
     }
-    
-    grid.appendChild(frag);
-    
-    if (currentIdx < total) {
-      requestAnimationFrame(renderChunk);
-    } else {
-      Cache.lastUpdate.grid = Date.now();
-      Cache.cards = grid.querySelectorAll('.card');
-    }
+    if (showingFavPicker && favoriteChannels.includes(ch.name)) card.classList.add('is-favorite');
+    card.addEventListener('focus', function() { activePane = 'grid'; gridFocusIdx = idx; });
+    card.addEventListener('mouseenter', function() { clearCardKbFocus(); });
+    card.addEventListener('click', function() {
+      if (showingFavPicker) {
+        toggleFavorite(ch);
+      } else {
+        openPlayer(channels.indexOf(ch));
+      }
+    });
+    return card;
   }
 
+  function renderChunk() {
+    if (renderToken !== _gridRenderToken) return; // grid was re-rendered/cleared meanwhile
+    const frag = document.createDocumentFragment();
+    const end = Math.min(i + GRID_CHUNK, total);
+    for (; i < end; i++) frag.appendChild(buildCard(filteredChannels[i], i));
+    grid.appendChild(frag);
+    if (i < total) {
+      requestAnimationFrame(renderChunk);
+    } else if (activePane === 'grid') {
+      // Re-applies the kbfocus highlight once every card actually exists;
+      // harmless no-op if nothing in the grid is focused yet.
+      setGridFocus(gridFocusIdx);
+    }
+  }
   renderChunk();
 }
 
@@ -3575,7 +3580,9 @@ function renderOverlayGrid(category, onComplete) {
   overlayGrid.scrollTop = 0;
 
   filteredOverlayChannels = category === 'Favs'
-    ? favoriteChannels.map(name => channels.find(c => c.name === name)).filter(Boolean).reverse()
+    ? favoriteChannels.map(function(name) {
+        return channels.find(function(channel) { return channel.name === name; });
+      }).filter(Boolean).reverse()
     : category === 'All Channels'
     ? channels.slice()
     : channels.filter(c => (c.categories || [c.category]).includes(category));
@@ -3592,7 +3599,7 @@ function renderOverlayGrid(category, onComplete) {
     return;
   }
 
-  const CHUNK = 40;
+  const CHUNK = 30;
   let i = 0;
   const total = filteredOverlayChannels.length;
 
@@ -3602,18 +3609,36 @@ function renderOverlayGrid(category, onComplete) {
     for (; i < end; i++) {
       const ch  = filteredOverlayChannels[i];
       const globalIdx = channels.findIndex(c => c.name === ch.name);
+
       const oCard = document.createElement('div');
       oCard.className = 'overlay-card';
       oCard.tabIndex = -1;
-      oCard.innerHTML = `
-        <div class="overlay-logo-col">
-          <img class="overlay-logo" src="${ch.logo || DEFAULT_LOGO}" loading="lazy" decoding="async" onerror="this.src='${DEFAULT_LOGO}'">
-        </div>
-        <div class="overlay-name-col">
-          <div class="overlay-name">${ch.name}</div>
-          ${ch.isNew ? '<div class="overlay-new-badge">NEW</div>' : ''}
-        </div>
-      `;
+
+      const oLogoCol = document.createElement('div');
+      oLogoCol.className = 'overlay-logo-col';
+      const oImg = document.createElement('img');
+      oImg.className = 'overlay-logo';
+      oImg.loading  = 'lazy'; oImg.decoding = 'async';
+      oImg.src = ch.logo || DEFAULT_LOGO;
+      oImg.onerror = function() { this.src = DEFAULT_LOGO; };
+      oLogoCol.appendChild(oImg);
+      oCard.appendChild(oLogoCol);
+
+      const oNameCol = document.createElement('div');
+      oNameCol.className = 'overlay-name-col';
+      const oName = document.createElement('div');
+      oName.className = 'overlay-name';
+      oName.textContent = ch.name;
+      oNameCol.appendChild(oName);
+      
+      if (ch.isNew) {
+        const oNewBadge = document.createElement('div');
+        oNewBadge.className = 'overlay-new-badge';
+        oNewBadge.textContent = 'NEW';
+        oNameCol.appendChild(oNewBadge);
+      }
+      oCard.appendChild(oNameCol);
+
       oCard.addEventListener('click', function(e) {
         e.stopPropagation();
         playChannelFromOverlay(globalIdx);
@@ -3625,13 +3650,11 @@ function renderOverlayGrid(category, onComplete) {
       requestAnimationFrame(renderChunk);
     } else {
       _oCardsArr = Array.from(overlayGrid.children);
-      Cache.lastUpdate.overlay = Date.now();
-      Cache.overlayCards = _oCardsArr;
       updateOverlayPlayingCard();
       if (onComplete) onComplete();
     }
   }
-  renderChunk();
+  requestAnimationFrame(renderChunk);
 }
 
 function playChannelFromOverlay(globalIdx) {
@@ -3669,37 +3692,10 @@ function changePlayerChannel(direction) {
   playStream(nextIndex, 0);
 }
 
-function getCards() {
-    if (Date.now() - Cache.lastUpdate.grid > 100) {
-        Cache.cards = document.querySelectorAll('.card');
-        Cache.lastUpdate.grid = Date.now();
-    }
-    return Cache.cards;
-}
-
-function getCatItems() {
-    if (Date.now() - Cache.lastUpdate.sidebar > 500) {
-        Cache.catItems = document.querySelectorAll('.cat-item');
-        Cache.lastUpdate.sidebar = Date.now();
-    }
-    return Cache.catItems;
-}
-
-function getOverlayCards() {
-    if (Date.now() - Cache.lastUpdate.overlay > 100) {
-        Cache.overlayCards = document.querySelectorAll('.overlay-card');
-        Cache.lastUpdate.overlay = Date.now();
-    }
-    return Cache.overlayCards;
-}
-
-function getInfoItems() {
-    if (Date.now() - Cache.lastUpdate.info > 1000) {
-        Cache.infoItems = document.querySelectorAll('.info-item');
-        Cache.lastUpdate.info = Date.now();
-    }
-    return Cache.infoItems;
-}
+function getCards()        { return document.querySelectorAll('.card'); }
+function getCatItems()     { return document.querySelectorAll('.cat-item'); }
+function getOverlayCards() { return document.querySelectorAll('.overlay-card'); }
+function getInfoItems()    { return document.querySelectorAll('.info-item'); }
 
 function setCatFocus(idx) {
   const items = getCatItems();
@@ -3755,6 +3751,16 @@ function openPlayer(idx, streamIndex) {
   currentChannelIdx = idx;
   playerOpen        = true;
   playerWrap.style.display = 'block';
+  /* PERF FIX #9: the fullscreen player fully covers the sidebar + channel
+     grid, but that grid can hold hundreds of channel cards and was being
+     left in the DOM at `display: flex`, fully laid out and composited,
+     underneath the player the whole time. The browser still has to manage
+     layout/paint/compositing for all of that off-screen content, which
+     competes with the player's own decode/paint work for every remote-key
+     press and is the main reason navigating panels *inside* the player felt
+     like it could set the TV on fire. Hiding it outright removes that cost
+     entirely while the player is open. */
+  mainUiEl.style.display = 'none';
   // PERF FIX #5: the fullscreen player covers the navbar entirely, so its
   // ticker text animation is running fully off-screen — pause it while
   // the player is open.
@@ -3796,6 +3802,9 @@ function updateOverlayPlayingCard() {
 function closePlayer() {
   playerOpen = false;
   playerWrap.style.display = 'none';
+  // PERF FIX #9: restore the sidebar + grid now that the player no longer
+  // covers it (see openPlayer's mainUiEl.style.display = 'none').
+  mainUiEl.style.display = 'flex';
   hideLoading(); hideBufferBadge(); hideOfflineCard(); hideAllPlayerPanels(); hideQualityPanel();
   clearTimeout(_streamFallbackTimer);
   /* PERF FIX #1: closing the player no longer destroys the Hls instance —
@@ -4639,15 +4648,3 @@ window.addEventListener('keydown', function() {
 </script>
 </body>
 </html>
-
-// Performance Boost: Stop ticker and HLS loading when tab is hidden
-document.addEventListener('visibilitychange', function() {
-  const navTickerEl = document.querySelector('.nav-ticker');
-  if (document.hidden) {
-    if (navTickerEl) navTickerEl.classList.add('ticker-paused');
-    if (hls) hls.stopLoad();
-  } else {
-    if (navTickerEl && !playerOpen) navTickerEl.classList.remove('ticker-paused');
-    if (hls && playerOpen) hls.startLoad();
-  }
-}, { passive: true });
