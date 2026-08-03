@@ -138,6 +138,22 @@
     font-family: var(--font);
     display: flex;
     flex-direction: column;
+    text-rendering: optimizeSpeed;
+    -webkit-font-smoothing: antialiased;
+    transform: translate3d(0,0,0); /* Force GPU acceleration */
+  }
+
+  /* PERF: Containment for layout optimization */
+  .grid, .sidebar, .content-area, #player-wrap {
+    contain: content;
+  }
+
+  .nav-ticker {
+    display: inline-flex;
+    white-space: nowrap;
+    will-change: transform;
+    animation: navTicker 28s linear infinite;
+    transform: translate3d(0,0,0);
   }
 
   /* ── Navbar ── */
@@ -3209,7 +3225,7 @@ async function loadPlaylist() {
   }
 }
 
-function parseM3U(text) {
+async function parseM3U(text) {
   try {
     const normalized = text.replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB]/g, '"');
     const lines = normalized.split(/\r?\n/);
@@ -3218,7 +3234,11 @@ function parseM3U(text) {
     let pendingGroup = null;
     const chMap = new Map();
 
+    // Process in chunks to avoid blocking UI
+    const CHUNK = 500;
     for (let i = 0; i < lines.length; i++) {
+      if (i > 0 && i % CHUNK === 0) await new Promise(r => setTimeout(r, 0));
+      
       const line = lines[i].trim();
       if (!line) continue;
       if (/^#EXTGRP\s*:/i.test(line)) {
@@ -3268,31 +3288,35 @@ function parseM3U(text) {
 
     channels = Array.from(chMap.values());
     if (channels.length === 0) { showStateError('কোনো চ্যানেল পাওয়া যায়নি।'); return; }
+    
+    // Continue processing...
+    await new Promise(r => setTimeout(r, 0));
+    
     try {
       const savedFavorites = JSON.parse(localStorage.getItem('hridoytv-favorites') || '[]');
       favoriteChannels = Array.isArray(savedFavorites)
-        ? savedFavorites.filter(function(name) { return channels.some(function(ch) { return ch.name === name; }); })
+        ? savedFavorites.filter(name => channels.some(ch => ch.name === name))
         : [];
     } catch (_) {
       favoriteChannels = [];
     }
 
-    channels.forEach(function(c) {
-      (c.categories || [c.category]).forEach(function(cat) { if (cat) catSet.add(cat); });
+    channels.forEach(c => {
+      (c.categories || [c.category]).forEach(cat => { if (cat) catSet.add(cat); });
     });
-    const catList = Array.from(catSet).filter(Boolean);
+    const catListNames = Array.from(catSet).filter(Boolean);
     const CAT_ORDER = ['Pinned','Sports','News','Bangla','Indian Bangla','Movies','Kids','Entertainment','Lifestyle/Doc','Religious','International','Other'];
     function catOrderIdx(name) {
       const nl = name.toLowerCase();
       for (let i = 0; i < CAT_ORDER.length; i++) { if (CAT_ORDER[i].toLowerCase() === nl) return i; }
       return 999;
     }
-    const otherCats = catList.filter(function(c) { return c.toLowerCase() !== 'pinned'; }).sort(function(a, b) {
+    const otherCats = catListNames.filter(c => c.toLowerCase() !== 'pinned').sort((a, b) => {
       const ia = catOrderIdx(a), ib = catOrderIdx(b);
       if (ia !== ib) return ia - ib;
       return a.localeCompare(b);
     });
-    const hasPinned = catList.some(function(c) { return c.toLowerCase() === 'pinned'; });
+    const hasPinned = catListNames.some(c => c.toLowerCase() === 'pinned');
     categories = ['Favs'];
     if (hasPinned) categories.push('Pinned');
     categories.push('All Channels');
@@ -3436,52 +3460,69 @@ function updateFavoriteMarker(channelName, isFavorite) {
   });
 }
 
+// 1. DOM Element Cache - Avoid repeated querySelectorAll calls
+const Cache = {
+    cards: [],
+    catItems: [],
+    overlayCards: [],
+    infoItems: [],
+    lastUpdate: { grid: 0, sidebar: 0, overlay: 0, info: 0 }
+};
+
 function renderGrid() {
   hideStateMsg();
   grid.innerHTML = '';
   grid.classList.toggle('fav-picker', showingFavPicker);
+  
   if (!filteredChannels.length) {
     if (categories[catActiveIdx] === 'Favs') {
-      showStateInfo('♥', 'আপনার পছন্দের চ্যানেলগুলো এখানে সেভ করে রাখুন, যাতে পরে দ্রুত খুঁজে পেতে পারেন। শুরু করতে উপরের Add Favs নির্বাচন করুন, তারপর তালিকা থেকে আপনার পছন্দের চ্যানেলে ক্লিক করুন। নির্বাচিত সব চ্যানেল এই Favs তালিকায় সংরক্ষিত থাকবে।');
+      showStateInfo('♥', 'আপনার পছন্দের চ্যানেলগুলো এখানে সেভ করে রাখুন...');
     } else {
       showStateInfo('\u{1F4ED}', 'এই ক্যাটেগরিতে কোনো চ্যানেল নেই।');
     }
     return;
   }
-  const frag = document.createDocumentFragment();
-  filteredChannels.forEach(function(ch, i) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.tabIndex = -1;
-    const img = document.createElement('img');
-    img.className = 'card-logo';
-    img.loading = 'lazy'; img.decoding = 'async';
-    img.src = ch.logo || DEFAULT_LOGO;
-    img.onerror = function() { img.src = DEFAULT_LOGO; };
-    const name = document.createElement('div');
-    name.className = 'card-name';
-    name.textContent = ch.name;
-    card.appendChild(img);
-    card.appendChild(name);
-    if (ch.isNew) {
-      const newBadge = document.createElement('div');
-      newBadge.className = 'card-new-badge';
-      newBadge.textContent = 'NEW';
-      card.appendChild(newBadge);
+
+  const total = filteredChannels.length;
+  const CHUNK_SIZE = 40; 
+  let currentIdx = 0;
+
+  function renderChunk() {
+    const frag = document.createDocumentFragment();
+    const end = Math.min(currentIdx + CHUNK_SIZE, total);
+    
+    for (; currentIdx < end; currentIdx++) {
+      const ch = filteredChannels[currentIdx];
+      const card = document.createElement('div');
+      card.className = 'card' + (showingFavPicker && favoriteChannels.includes(ch.name) ? ' is-favorite' : '');
+      card.tabIndex = -1;
+      
+      card.innerHTML = `
+        <img class="card-logo" src="${ch.logo || DEFAULT_LOGO}" loading="lazy" decoding="async" onerror="this.src='${DEFAULT_LOGO}'">
+        <div class="card-name">${ch.name}</div>
+        ${ch.isNew ? '<div class="card-new-badge">NEW</div>' : ''}
+      `;
+
+      const localIdx = currentIdx;
+      card.addEventListener('focus', function() { activePane = 'grid'; gridFocusIdx = localIdx; });
+      card.addEventListener('click', function() {
+        if (showingFavPicker) toggleFavorite(ch);
+        else openPlayer(channels.indexOf(ch));
+      });
+      frag.appendChild(card);
     }
-    if (showingFavPicker && favoriteChannels.includes(ch.name)) card.classList.add('is-favorite');
-    card.addEventListener('focus', function() { activePane = 'grid'; gridFocusIdx = i; });
-    card.addEventListener('mouseenter', function() { clearCardKbFocus(); });
-    card.addEventListener('click', function() {
-      if (showingFavPicker) {
-        toggleFavorite(ch);
-      } else {
-        openPlayer(channels.indexOf(ch));
-      }
-    });
-    frag.appendChild(card);
-  });
-  grid.appendChild(frag);
+    
+    grid.appendChild(frag);
+    
+    if (currentIdx < total) {
+      requestAnimationFrame(renderChunk);
+    } else {
+      Cache.lastUpdate.grid = Date.now();
+      Cache.cards = grid.querySelectorAll('.card');
+    }
+  }
+
+  renderChunk();
 }
 
 function renderOverlayCategories() {
@@ -3534,9 +3575,7 @@ function renderOverlayGrid(category, onComplete) {
   overlayGrid.scrollTop = 0;
 
   filteredOverlayChannels = category === 'Favs'
-    ? favoriteChannels.map(function(name) {
-        return channels.find(function(channel) { return channel.name === name; });
-      }).filter(Boolean).reverse()
+    ? favoriteChannels.map(name => channels.find(c => c.name === name)).filter(Boolean).reverse()
     : category === 'All Channels'
     ? channels.slice()
     : channels.filter(c => (c.categories || [c.category]).includes(category));
@@ -3553,7 +3592,7 @@ function renderOverlayGrid(category, onComplete) {
     return;
   }
 
-  const CHUNK = 30;
+  const CHUNK = 40;
   let i = 0;
   const total = filteredOverlayChannels.length;
 
@@ -3563,36 +3602,18 @@ function renderOverlayGrid(category, onComplete) {
     for (; i < end; i++) {
       const ch  = filteredOverlayChannels[i];
       const globalIdx = channels.findIndex(c => c.name === ch.name);
-
       const oCard = document.createElement('div');
       oCard.className = 'overlay-card';
       oCard.tabIndex = -1;
-
-      const oLogoCol = document.createElement('div');
-      oLogoCol.className = 'overlay-logo-col';
-      const oImg = document.createElement('img');
-      oImg.className = 'overlay-logo';
-      oImg.loading  = 'lazy'; oImg.decoding = 'async';
-      oImg.src = ch.logo || DEFAULT_LOGO;
-      oImg.onerror = function() { this.src = DEFAULT_LOGO; };
-      oLogoCol.appendChild(oImg);
-      oCard.appendChild(oLogoCol);
-
-      const oNameCol = document.createElement('div');
-      oNameCol.className = 'overlay-name-col';
-      const oName = document.createElement('div');
-      oName.className = 'overlay-name';
-      oName.textContent = ch.name;
-      oNameCol.appendChild(oName);
-      
-      if (ch.isNew) {
-        const oNewBadge = document.createElement('div');
-        oNewBadge.className = 'overlay-new-badge';
-        oNewBadge.textContent = 'NEW';
-        oNameCol.appendChild(oNewBadge);
-      }
-      oCard.appendChild(oNameCol);
-
+      oCard.innerHTML = `
+        <div class="overlay-logo-col">
+          <img class="overlay-logo" src="${ch.logo || DEFAULT_LOGO}" loading="lazy" decoding="async" onerror="this.src='${DEFAULT_LOGO}'">
+        </div>
+        <div class="overlay-name-col">
+          <div class="overlay-name">${ch.name}</div>
+          ${ch.isNew ? '<div class="overlay-new-badge">NEW</div>' : ''}
+        </div>
+      `;
       oCard.addEventListener('click', function(e) {
         e.stopPropagation();
         playChannelFromOverlay(globalIdx);
@@ -3604,11 +3625,13 @@ function renderOverlayGrid(category, onComplete) {
       requestAnimationFrame(renderChunk);
     } else {
       _oCardsArr = Array.from(overlayGrid.children);
+      Cache.lastUpdate.overlay = Date.now();
+      Cache.overlayCards = _oCardsArr;
       updateOverlayPlayingCard();
       if (onComplete) onComplete();
     }
   }
-  requestAnimationFrame(renderChunk);
+  renderChunk();
 }
 
 function playChannelFromOverlay(globalIdx) {
@@ -3646,10 +3669,37 @@ function changePlayerChannel(direction) {
   playStream(nextIndex, 0);
 }
 
-function getCards()        { return document.querySelectorAll('.card'); }
-function getCatItems()     { return document.querySelectorAll('.cat-item'); }
-function getOverlayCards() { return document.querySelectorAll('.overlay-card'); }
-function getInfoItems()    { return document.querySelectorAll('.info-item'); }
+function getCards() {
+    if (Date.now() - Cache.lastUpdate.grid > 100) {
+        Cache.cards = document.querySelectorAll('.card');
+        Cache.lastUpdate.grid = Date.now();
+    }
+    return Cache.cards;
+}
+
+function getCatItems() {
+    if (Date.now() - Cache.lastUpdate.sidebar > 500) {
+        Cache.catItems = document.querySelectorAll('.cat-item');
+        Cache.lastUpdate.sidebar = Date.now();
+    }
+    return Cache.catItems;
+}
+
+function getOverlayCards() {
+    if (Date.now() - Cache.lastUpdate.overlay > 100) {
+        Cache.overlayCards = document.querySelectorAll('.overlay-card');
+        Cache.lastUpdate.overlay = Date.now();
+    }
+    return Cache.overlayCards;
+}
+
+function getInfoItems() {
+    if (Date.now() - Cache.lastUpdate.info > 1000) {
+        Cache.infoItems = document.querySelectorAll('.info-item');
+        Cache.lastUpdate.info = Date.now();
+    }
+    return Cache.infoItems;
+}
 
 function setCatFocus(idx) {
   const items = getCatItems();
@@ -4589,3 +4639,15 @@ window.addEventListener('keydown', function() {
 </script>
 </body>
 </html>
+
+// Performance Boost: Stop ticker and HLS loading when tab is hidden
+document.addEventListener('visibilitychange', function() {
+  const navTickerEl = document.querySelector('.nav-ticker');
+  if (document.hidden) {
+    if (navTickerEl) navTickerEl.classList.add('ticker-paused');
+    if (hls) hls.stopLoad();
+  } else {
+    if (navTickerEl && !playerOpen) navTickerEl.classList.remove('ticker-paused');
+    if (hls && playerOpen) hls.startLoad();
+  }
+}, { passive: true });
