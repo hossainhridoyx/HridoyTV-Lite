@@ -630,13 +630,25 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    /* BUGFIX (TV "looks unstyled" bug): older Tizen/webOS/Android-TV browsers
+       do not understand clamp()/min(). When a browser can't parse a value it
+       drops that whole declaration instead of falling back — so every
+       clamp()/min() line below is preceded by a plain fixed-px fallback that
+       every browser understands. Capable browsers use the later clamp()/min()
+       line (last one wins in the cascade); TVs without support just keep the
+       plain value instead of silently getting no gap/padding/width/radius at
+       all (which is what made this card look completely unstyled on TV). */
+    gap: 10px;
     gap: clamp(7px, 0.8vw, 18px);
     text-align: center;
+    width: 360px;
     width: min(clamp(300px, 36vw, 600px), 92%);
     box-sizing: border-box;
+    padding: 20px 24px 20px;
     padding: clamp(12px, 1.8vw, 40px) clamp(14px, 2.8vw, 52px) clamp(12px, 1.8vw, 40px);
     background: rgba(10, 10, 10, 0.94);
     border: 1.5px solid rgba(0, 230, 118, 0.22);
+    border-radius: 16px;
     border-radius: clamp(14px, 1.4vw, 24px);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
     max-height: calc(100% - 16px);
@@ -653,6 +665,7 @@
     .state-card-title { font-size: 0.74rem; }
   }
   .state-card-icon {
+    font-size: 2rem;
     font-size: clamp(1.5rem, 3.5vw, 4.8rem);
     line-height: 1;
     filter: grayscale(0.3);
@@ -660,6 +673,7 @@
   }
   .state-card-title {
     font-family: var(--font);
+    font-size: 1rem;
     font-size: clamp(0.8rem, 1.85vw, 2.1rem);
     font-weight: 700;
     color: #fff;
@@ -668,6 +682,7 @@
   }
   .state-card-sub {
     font-family: var(--font);
+    font-size: 0.85rem;
     font-size: clamp(0.66rem, 1.25vw, 1.35rem);
     font-weight: 500;
     color: #777;
@@ -680,10 +695,19 @@
   .state-card.state-card-error .state-card-title {
     color: #ff5252;
   }
+  .offline-divider {
+    width: 100%;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    margin: 2px 0;
+  }
   .state-btn-row {
     display: flex;
     flex-direction: row;
+    gap: 10px;
     gap: clamp(8px, 1vw, 18px);
+    margin-top: 5px;
     margin-top: clamp(3px, 0.5vw, 10px);
     flex-wrap: wrap;
     justify-content: center;
@@ -692,32 +716,40 @@
   .state-fix-list {
     display: flex;
     flex-direction: column;
+    gap: 7px;
     gap: clamp(4px, 0.5vw, 12px);
     width: 100%;
     text-align: left;
+    margin-top: 3px;
     margin-top: clamp(1px, 0.3vw, 6px);
   }
   .state-fix-step {
     display: flex;
     align-items: flex-start;
+    gap: 8px;
     gap: clamp(6px, 0.7vw, 14px);
   }
   .state-fix-num {
+    width: 18px;
     width: clamp(14px, 1.4vw, 26px);
+    height: 18px;
     height: clamp(14px, 1.4vw, 26px);
     border-radius: 50%;
     background: rgba(255, 82, 82, 0.15);
     color: #ff8a8a;
+    font-size: 0.68rem;
     font-size: clamp(0.52rem, 0.75vw, 0.9rem);
     font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    margin-top: 2px;
     margin-top: clamp(1px, 0.2vw, 4px);
   }
   .state-fix-txt {
     font-family: var(--font);
+    font-size: 0.76rem;
     font-size: clamp(0.6rem, 1vw, 1.08rem);
     line-height: 1.45;
     color: #aaa;
@@ -829,21 +861,40 @@
     position: absolute;
     top: 50%;
     left: auto;
+    /* BUGFIX (TV "shows on the left" bug): many smart-TV browsers (older
+       Tizen/webOS/Android-TV WebViews) do not understand the CSS clamp()
+       function. When a browser can't parse a value, it drops that whole
+       declaration — so `right: clamp(...)` was simply ignored on those TVs,
+       `right` fell back to its default `auto`, and with `left` also `auto`
+       an absolutely-positioned element resolves to its static position,
+       which is the LEFT edge here. Fix: declare a plain fixed-px `right`
+       value FIRST as a fallback (every browser understands plain px), then
+       the clamp() version after it — capable browsers use the clamp()
+       line (it comes later in the cascade), TVs without clamp() support
+       just keep the plain px fallback instead of silently resetting to
+       `auto`/left. Same fallback-then-clamp pattern applied below to
+       gap/padding/font-size so the popup stays correctly sized (truly
+       responsive) even on those older TV browsers. */
+    right: 32px;
     right: clamp(28px, 4vw, 76px);
     bottom: auto;
     display: flex;
     align-items: center;
+    gap: 12px;
     gap: clamp(10px, 1vw, 16px);
+    padding: 15px 22px;
     padding: clamp(13px, 1.35vw, 21px) clamp(18px, 1.8vw, 30px);
     border: 2px solid rgba(255, 107, 126, 0.56);
     border-radius: 14px;
     background: rgba(8, 8, 10, 0.9);
     color: #fff;
     font-family: var(--font);
+    font-size: 1.05rem;
     font-size: clamp(0.95rem, 1.55vw, 1.32rem);
     font-weight: 700;
     letter-spacing: 0.045em;
     line-height: 1.2;
+    max-width: min(60vw, 420px);
     box-shadow: 0 12px 34px rgba(0, 0, 0, 0.58), 0 0 22px rgba(255, 107, 126, 0.18);
     /* PERF FIX #4: backdrop-filter blur removed (GPU-heavy on TVs); background
        opacity bumped up so the popup still reads as opaque without it. */
@@ -968,6 +1019,7 @@
   .offline-actions {
     display: flex;
     flex-direction: row;
+    gap: 12px;
     gap: clamp(10px, 1.2vw, 20px);
     pointer-events: auto;
     justify-content: center;
@@ -978,8 +1030,11 @@
     background: rgba(255, 255, 255, 0.06);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
     color: #e8eaed;
+    padding: 10px 16px;
     padding: clamp(9px, 1vw, 17px) clamp(12px, 1.5vw, 30px);
+    border-radius: 12px;
     border-radius: clamp(10px, 1vw, 16px);
+    font-size: 0.85rem;
     font-size: clamp(0.7rem, 1.12vw, 1.16rem);
     font-weight: 700;
     font-family: var(--font);
@@ -987,6 +1042,7 @@
     outline: none;
     transition: all 0.2s ease;
     white-space: nowrap;
+    min-height: 42px;
     min-height: clamp(38px, 3.4vw, 62px);
     display: flex;
     align-items: center;
@@ -1744,11 +1800,19 @@
   }
 
   @media (min-width: 800px) {
-    .popup-overlay { padding: 40px 60px; }
+    /* BUGFIX: fixed-px padding here does not scale with the physical screen
+       size. On larger/high-resolution TV panels a 40-60px margin can be a
+       tiny sliver of the screen, and with TV overscan (many TVs crop a
+       percentage of the outer edge of the picture) that thin margin can end
+       up cropped away entirely, making the popup look like it's touching or
+       bleeding off the top/bottom of the screen. Percentage padding scales
+       with the actual viewport regardless of resolution, so it always keeps
+       a safe visible gap. */
+    .popup-overlay { padding: 6% 6%; }
     .popup-box {
       width: 460px;
       max-width: calc(100vw - 120px);
-      max-height: min(520px, 65vh);
+      max-height: 58vh;
       border-radius: 18px;
     }
     .popup-header   { padding: 14px 18px 12px 18px; gap: 10px; }
@@ -1764,11 +1828,14 @@
   }
 
   @media (min-width: 1200px) {
-    .popup-overlay { padding: 60px 80px; }
+    /* BUGFIX: same TV overscan/edge-bleed issue as the 800px breakpoint above,
+       just with a larger safe margin since this tier targets TVs specifically
+       (this is the same breakpoint the rest of the app treats as "TV"). */
+    .popup-overlay { padding: 7% 7%; }
     .popup-box {
       width: 560px;
       max-width: calc(100vw - 200px);
-      max-height: min(620px, 70vh);
+      max-height: 60vh;
       border-radius: 22px;
       border-width: 1.5px;
     }
@@ -1957,7 +2024,7 @@
   /* ── TV-friendly Stream Help ── */
   .popup-box.stream-fix-popup {
     width: min(540px, 86vw);
-    max-height: min(580px, calc(100vh - 120px));
+    max-height: 80vh;
     border-color: rgba(0,230,118,0.38);
     box-shadow: 0 0 0 1px rgba(0,230,118,0.1), 0 20px 70px rgba(0,0,0,0.78);
   }
@@ -3089,6 +3156,30 @@ function getGridCols() {
 function getOverlayCols() { return 1; }
 window.addEventListener('resize', function() { _gridColsCache = 0; _overlayColsCache = 0; }, { passive: true });
 
+/*
+ * REMOTE-NAV PERF FIX: `getCards()` used to run `document.querySelectorAll('.card')`
+ * on every single remote keypress, and `clearCardKbFocus()` used to run another
+ * full `document.querySelectorAll('.card.kbfocus')` scan on every keypress too.
+ * With a few hundred cards in the grid, that is two full DOM scans per keypress
+ * before any visible highlight moves -- on a weak TV CPU those scans (plus the
+ * forced layout from scrollIntoView) can't keep up with fast remote button
+ * repeats, so presses pile up and navigation feels stuck/laggy/hangy.
+ *
+ * Fix: cache the card list once per render (only rebuilt when the grid's DOM
+ * actually changes) and track the currently-focused card element directly so
+ * clearing/moving focus is O(1) instead of O(n). On top of that, rapid
+ * directional key repeats are coalesced onto requestAnimationFrame -- the
+ * logical focus index updates instantly on every keypress (so math like
+ * "gridFocusIdx + 1" is always correct immediately), but the actual DOM
+ * class + scrollIntoView work is applied at most once per animation frame,
+ * always jumping straight to the latest requested card. That means a burst
+ * of remote button presses never queues up a chain of stale re-renders --
+ * the UI always catches up to exactly where the user currently is, in sync
+ * with the very next button press.
+ */
+let _gridCardsCache = null;
+function invalidateGridCardsCache() { _gridCardsCache = null; }
+
 let _oCardsArr      = [];
 let _focusedOverlayEl = null;
 let _prevPlayingCard = null;
@@ -3099,7 +3190,11 @@ function _invalidateOCards() {
   _prevPlayingCard = null;
 }
 
-function clearCardKbFocus() { document.querySelectorAll('.card.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); }); }
+let _focusedCardEl = null;
+function clearCardKbFocus() {
+  if (_focusedCardEl) { _focusedCardEl.classList.remove('kbfocus'); _focusedCardEl = null; return; }
+  document.querySelectorAll('.card.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); });
+}
 function clearOverlayKbFocus() {
   document.querySelectorAll('.overlay-card.kbfocus').forEach(function(card) {
     card.classList.remove('kbfocus');
@@ -3467,6 +3562,8 @@ let _gridRenderToken = 0;
 function renderGrid() {
   hideStateMsg();
   grid.innerHTML = '';
+  invalidateGridCardsCache();
+  _focusedCardEl = null;
   grid.classList.toggle('fav-picker', showingFavPicker);
   const renderToken = ++_gridRenderToken;
   if (!filteredChannels.length) {
@@ -3521,6 +3618,7 @@ function renderGrid() {
     const end = Math.min(i + GRID_CHUNK, total);
     for (; i < end; i++) frag.appendChild(buildCard(filteredChannels[i], i));
     grid.appendChild(frag);
+    invalidateGridCardsCache();
     if (i < total) {
       requestAnimationFrame(renderChunk);
     } else if (activePane === 'grid') {
@@ -3694,7 +3792,10 @@ function changePlayerChannel(direction) {
   playStream(nextIndex, 0);
 }
 
-function getCards()        { return document.querySelectorAll('.card'); }
+function getCards() {
+  if (!_gridCardsCache) _gridCardsCache = Array.from(grid.querySelectorAll('.card'));
+  return _gridCardsCache;
+}
 function getCatItems()     { return document.querySelectorAll('.cat-item'); }
 function getOverlayCards() { return document.querySelectorAll('.overlay-card'); }
 function getInfoItems()    { return document.querySelectorAll('.info-item'); }
@@ -3722,9 +3823,33 @@ function setGridFocus(idx) {
   const cards = getCards();
   if (!cards.length) return;
   gridFocusIdx = Math.max(0, Math.min(idx, cards.length - 1));
-  clearCardKbFocus();
-  cards[gridFocusIdx].classList.add('kbfocus');
-  cards[gridFocusIdx].scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  const card = cards[gridFocusIdx];
+  if (_focusedCardEl && _focusedCardEl !== card) _focusedCardEl.classList.remove('kbfocus');
+  card.classList.add('kbfocus');
+  _focusedCardEl = card;
+  card.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+}
+
+/*
+ * Used for directional (Up/Down/Left/Right) grid navigation only. Updates
+ * the logical `gridFocusIdx` immediately (so back-to-back keypresses always
+ * compute from the latest position), but defers the actual highlight-move +
+ * scrollIntoView DOM work to the next animation frame and collapses any
+ * extra keypresses that land before that frame runs into a single update --
+ * so a fast burst of remote button presses can never pile up a queue of
+ * DOM work; it always renders exactly the latest requested card, right in
+ * step with the buttons being pressed.
+ */
+let _gridFocusRAF = null;
+function requestGridFocus(idx) {
+  const cards = getCards();
+  if (!cards.length) return;
+  gridFocusIdx = Math.max(0, Math.min(idx, cards.length - 1));
+  if (_gridFocusRAF) return;
+  _gridFocusRAF = requestAnimationFrame(function() {
+    _gridFocusRAF = null;
+    setGridFocus(gridFocusIdx);
+  });
 }
 
 function enterRealFullscreen() {
@@ -3768,6 +3893,17 @@ function openPlayer(idx, streamIndex) {
   // the player is open.
   var navTickerEl = document.querySelector('.nav-ticker');
   if (navTickerEl) navTickerEl.classList.add('ticker-paused');
+  /* BUGFIX: #popup-overlay (About/Contact/"How to fix?"/etc.) lives outside
+     #player-wrap in the DOM. Once #player-wrap is put into the browser's
+     native Fullscreen mode below, only the fullscreen element's own subtree
+     is composited on top — anything outside it (like this popup) gets
+     rendered underneath/outside that layer with its positioning and
+     stacking context effectively broken, which is why it showed up looking
+     unstyled ("stream unavailable" -> "How to fix?" popup, etc). Moving the
+     popup node inside #player-wrap while the player is open makes it part
+     of the fullscreen subtree so its CSS (position, z-index, backdrop)
+     applies correctly again. It is moved back out in closePlayer(). */
+  if (popupOverlay.parentElement !== playerWrap) playerWrap.appendChild(popupOverlay);
   if (!wasOpen) {
     enterRealFullscreen();
     history.pushState({ player: true }, '');
@@ -3818,6 +3954,12 @@ function closePlayer() {
   if (hls) { try { hls.stopLoad(); } catch (_) {} }
   vid.pause();
   exitRealFullscreen(); setAppHeight();
+  /* BUGFIX (see openPlayer): move #popup-overlay back out of #player-wrap
+     now that we're leaving fullscreen, so it renders in normal document
+     flow again for the non-player (channel list) screens. */
+  if (popupOverlay.parentElement === playerWrap) {
+    playerWrap.parentElement.insertBefore(popupOverlay, playerWrap);
+  }
   // PERF FIX #5: navbar is visible again once the player closes — resume the
   // ticker (unless the tab itself is hidden, which the visibilitychange
   // handler owns).
@@ -3947,6 +4089,14 @@ function playStream(idx, streamIndex) {
   if (streamIndex >= streams.length) { showOfflineCard(); return; }
   const url     = streams[streamIndex];
   const thisId  = ++_playId;
+  /* BUGFIX: a network error on the previous channel schedules a 3s fallback
+     (scheduleNextStream) that calls tryNextStream() using whatever channel is
+     "current" when it fires. If the viewer switches channels within that
+     window, the old timer was never cancelled, so it later ran against the
+     *new* (perfectly healthy) channel's _curStreamIndex/_curStreams and could
+     incorrectly show the "Stream Unavailable" card on it. Every new playback
+     attempt supersedes any pending fallback from a previous channel. */
+  clearTimeout(_streamFallbackTimer);
   _curIdx = idx;
   _curStreams = streams;
   _curStreamIndex = streamIndex;
@@ -4603,16 +4753,41 @@ window.addEventListener('keydown', function(e) {
     const cards = getCards();
     const total = cards.length;
     if (!total) return;
-    if (key === 'ArrowRight' || key === 'Right') { e.preventDefault(); if (gridFocusIdx + 1 < total) setGridFocus(gridFocusIdx + 1); }
-    else if (key === 'ArrowLeft' || key === 'Left') { e.preventDefault(); if (gridFocusIdx % currentGridCols === 0) { activePane = 'sidebar'; clearCardKbFocus(); setCatFocus(catActiveIdx); } else { setGridFocus(gridFocusIdx - 1); } }
-    else if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); if (gridFocusIdx + currentGridCols < total) setGridFocus(gridFocusIdx + currentGridCols); }
-    else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); if (gridFocusIdx - currentGridCols >= 0) setGridFocus(gridFocusIdx - currentGridCols); else { activePane = 'sidebar'; clearCardKbFocus(); setCatFocus(catActiveIdx); } }
+    if (key === 'ArrowRight' || key === 'Right') { e.preventDefault(); if (gridFocusIdx + 1 < total) requestGridFocus(gridFocusIdx + 1); }
+    else if (key === 'ArrowLeft' || key === 'Left') { e.preventDefault(); if (gridFocusIdx % currentGridCols === 0) { activePane = 'sidebar'; clearCardKbFocus(); setCatFocus(catActiveIdx); } else { requestGridFocus(gridFocusIdx - 1); } }
+    else if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); if (gridFocusIdx + currentGridCols < total) requestGridFocus(gridFocusIdx + currentGridCols); }
+    else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); if (gridFocusIdx - currentGridCols >= 0) requestGridFocus(gridFocusIdx - currentGridCols); else { activePane = 'sidebar'; clearCardKbFocus(); setCatFocus(catActiveIdx); } }
     else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); cards[gridFocusIdx].click(); }
     return;
   }
 });
 
-window.addEventListener('popstate', function() { if (playerOpen) closePlayer(); });
+/* BUGFIX: pressing the phone/browser Back button (or a swipe-back gesture)
+   used to jump straight to closePlayer() no matter what was open, so if the
+   channel list panel or the Favs panel was open inside the player, Back
+   would skip past it and exit the whole player in one go instead of first
+   closing that panel — leaving the panel's "open" state stuck for a frame
+   and skipping the same step-by-step back behaviour the remote/keyboard
+   Back key already has (see the BACK_KEYS handling above). Now popstate
+   closes whichever panel is on top first (quality panel, then channel/favs
+   overlay, then the controls bar) and re-pushes a history entry so the next
+   Back press continues the same step-by-step close; only once nothing is
+   open on top of the video does Back fully exit the player. */
+window.addEventListener('popstate', function() {
+  if (!playerOpen) return;
+  if (qualityPanelOpen) {
+    hideQualityPanel();
+    playerUiMode = 'controls';
+    history.pushState({ player: true }, '');
+    return;
+  }
+  if (playerUiMode === 'overlay' || playerUiMode === 'favs' || playerUiMode === 'controls') {
+    hideAllPlayerPanels();
+    history.pushState({ player: true }, '');
+    return;
+  }
+  closePlayer();
+});
 
 document.addEventListener('visibilitychange', function() {
   // PERF FIX #5: stop the navbar ticker animation while the tab is hidden —
