@@ -3209,8 +3209,34 @@ function clearOverlayKbFocus() {
   });
   _focusedOverlayEl = null;
 }
-function clearCatKbFocus()  { document.querySelectorAll('.cat-item.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); }); }
-function clearInfoKbFocus() { document.querySelectorAll('.info-item.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); }); }
+/*
+ * REMOTE-NAV PERF FIX #11: setCatFocus()/setInfoFocus() run on every single
+ * Up/Down keypress while browsing the sidebar categories or the info list --
+ * this is the very first screen every session lands on, and it stays live
+ * the whole time the grid is being browsed too (Left from the grid drops
+ * back into it). clearCatKbFocus()/clearInfoKbFocus() used to run a fresh
+ * `document.querySelectorAll('...kbfocus')` scan EVERY time, and both were
+ * called together on every keypress (each list clears the other, since focus
+ * can move between them) -- so every single remote press did two full DOM
+ * scans before anything visibly moved, on top of getCatItems()/getInfoItems()
+ * doing their own uncached `document.querySelectorAll()` scan too. That is
+ * exactly the same "two full scans per keypress" pattern that made the
+ * channel grid feel stuck/laggy before it was fixed (see the REMOTE-NAV PERF
+ * FIX note above getCards()) -- it just hadn't been applied here yet, which
+ * is why navigation could still hang even after the grid itself was fixed.
+ * Fixed the same way: track the one focused element directly so clearing is
+ * O(1) instead of O(n).
+ */
+let _focusedCatEl  = null;
+let _focusedInfoEl = null;
+function clearCatKbFocus() {
+  if (_focusedCatEl) { _focusedCatEl.classList.remove('kbfocus'); _focusedCatEl = null; return; }
+  document.querySelectorAll('.cat-item.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); });
+}
+function clearInfoKbFocus() {
+  if (_focusedInfoEl) { _focusedInfoEl.classList.remove('kbfocus'); _focusedInfoEl = null; return; }
+  document.querySelectorAll('.info-item.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); });
+}
 
 function showStateLoading() {
   stateErrorOpen = false;
@@ -3426,6 +3452,8 @@ function parseM3U(text) {
 
 function renderInfoList() {
   infoList.innerHTML = '';
+  invalidateInfoItemsCache();
+  _focusedInfoEl = null;
   const frag = document.createDocumentFragment();
   INFO_ITEMS.forEach(function(item, i) {
     const btn = document.createElement('button');
@@ -3455,6 +3483,8 @@ function renderInfoList() {
 
 function renderSidebar() {
   catList.innerHTML = '';
+  invalidateCatItemsCache();
+  _focusedCatEl = null;
   const frag = document.createDocumentFragment();
   const CAT_LABEL = {
     'Favs': '❤️ Favs', 'All Channels':  '🌐 All', 'Pinned': '📌 Pinned', 'Sports': '🏏 Sports', 'News': '📰 News',
@@ -3520,6 +3550,7 @@ function openFavoritePicker() {
   document.querySelectorAll('.cat-item').forEach(function(btn) {
     btn.classList.remove('active', 'kbfocus');
   });
+  _focusedCatEl = null;
   clearCardKbFocus();
   activePane = 'grid';
   renderGrid();
@@ -3804,17 +3835,29 @@ function getCards() {
   if (!_gridCardsCache) _gridCardsCache = Array.from(grid.querySelectorAll('.card'));
   return _gridCardsCache;
 }
-function getCatItems()     { return document.querySelectorAll('.cat-item'); }
+let _catItemsCache = null;
+function invalidateCatItemsCache() { _catItemsCache = null; }
+function getCatItems() {
+  if (!_catItemsCache) _catItemsCache = Array.from(catList.querySelectorAll('.cat-item'));
+  return _catItemsCache;
+}
 function getOverlayCards() { return document.querySelectorAll('.overlay-card'); }
-function getInfoItems()    { return document.querySelectorAll('.info-item'); }
+let _infoItemsCache = null;
+function invalidateInfoItemsCache() { _infoItemsCache = null; }
+function getInfoItems() {
+  if (!_infoItemsCache) _infoItemsCache = Array.from(infoList.querySelectorAll('.info-item'));
+  return _infoItemsCache;
+}
 
 function setCatFocus(idx) {
   const items = getCatItems();
   if (!items.length) return;
   catFocusIdx = Math.max(0, Math.min(idx, items.length - 1));
   clearCatKbFocus(); clearInfoKbFocus();
-  items[catFocusIdx].classList.add('kbfocus');
-  items[catFocusIdx].scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  const item = items[catFocusIdx];
+  item.classList.add('kbfocus');
+  _focusedCatEl = item;
+  item.scrollIntoView({ block: 'nearest', behavior: 'auto' });
 }
 
 function setInfoFocus(idx) {
@@ -3823,8 +3866,10 @@ function setInfoFocus(idx) {
   infoFocusIdx = Math.max(0, Math.min(idx, items.length - 1));
   activePane = 'info';
   clearInfoKbFocus(); clearCatKbFocus();
-  items[infoFocusIdx].classList.add('kbfocus');
-  items[infoFocusIdx].scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  const item = items[infoFocusIdx];
+  item.classList.add('kbfocus');
+  _focusedInfoEl = item;
+  item.scrollIntoView({ block: 'nearest', behavior: 'auto' });
 }
 
 function setGridFocus(idx) {
