@@ -548,7 +548,16 @@
        layers just sitting there. `will-change` is now applied ONLY to the
        one card that is actually focused/hovered (see rules below), so at
        most 1-2 layers exist at any time instead of hundreds. */
-    transition: transform 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease;
+    /* REMOTE-NAV PERF FIX #12: this used to be 0.1s. On a real remote, Up/
+       Down/Left/Right auto-repeats faster than that once a button is held,
+       so a new keypress was arriving before the previous card had finished
+       transitioning back to its resting size. The browser has to abort the
+       in-flight transition and start a new one, which is what reads as the
+       highlight "freezing" or "not moving immediately" mid-navigation.
+       Shortening this (and the matching .card.kbfocus transition below) so
+       it reliably finishes well within one repeat interval removes that
+       visible stutter. */
+    transition: transform 0.06s ease, border-color 0.06s ease, box-shadow 0.06s ease;
     position: relative;
     z-index: 1;
   }
@@ -573,7 +582,10 @@
     /* PERF FIX #8: will-change scoped to just the focused card, and only
        while it is actually animating in/out of focus. */
     will-change: transform;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+    /* REMOTE-NAV PERF FIX #12: shortened from 0.15s to match the base .card
+       rule above -- see that comment for why a long transition here made
+       fast/held remote presses look like navigation had stalled. */
+    transition: border-color 0.06s ease, box-shadow 0.06s ease, transform 0.06s ease;
     z-index: 6;
   }
   body:not(.kb-mode) .card.kbfocus {
