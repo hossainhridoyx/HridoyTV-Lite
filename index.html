@@ -528,6 +528,22 @@
     width: 100%;
     align-content: start;
     padding-bottom: calc(60px + env(safe-area-inset-bottom, 16px));
+    /* REMOTE-NAV PERF FIX #15: `card.scrollIntoView()` (called on every
+       Up/Down/Left/Right press) forces the browser to flush layout
+       synchronously before it can read the card's position. Without a
+       layout containment boundary here, that forced flush has to consider
+       the ENTIRE page's layout tree -- header, ticker, sidebar included --
+       not just this grid, even though nothing outside the grid actually
+       changed. That's extra synchronous main-thread work on every single
+       keypress, which is exactly what was still showing up as the header
+       ticker hitching and the highlight landing a beat late while moving
+       from card to card. `contain: layout style` tells the browser this
+       grid's internal layout can never affect anything outside it, so a
+       forced layout flush triggered by scrollIntoView only has to redo work
+       inside the grid, leaving the ticker/header layout alone.  (Paint
+       containment is deliberately not used here so the focused card's glow
+       is never visually clipped.) */
+    contain: layout style;
   }
 
   /* Channel Card */
