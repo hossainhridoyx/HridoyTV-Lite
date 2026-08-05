@@ -3636,21 +3636,21 @@ function renderGrid() {
     card.tabIndex = -1;
     const img = document.createElement('img');
     img.className = 'card-logo';
-    /* REMOTE-NAV PERF FIX #13: this was `loading="lazy"`. Cards are already
-       built in small chunks spread across animation frames (see GRID_CHUNK
-       below), so logos were already staggered -- but native lazy-loading
-       additionally waits until a card is actually near the viewport before
-       even starting its network fetch + decode. On weaker/older TV browsers
-       that lazy-load margin is tiny (or ~0), so the very first time the
-       remote scrolls a fresh row into view, its logos start fetching only at
-       that exact moment, and the decode/paint work for that whole row stalls
-       the next couple of keypresses -- which matches "smooth for a while,
-       then suddenly stutters" as navigation reaches rows that were never
-       preloaded. Loading eagerly still respects the existing per-frame
-       chunking (so requests are naturally spread out at build time, not all
-       at once), but starts every logo's network fetch as soon as its card is
-       created instead of waiting for it to scroll into view, so by the time
-       the remote gets there the image is already decoded and ready. */
+    /* REMOTE-NAV PERF FIX #13 (corrected): an earlier pass switched this to
+       eager loading, believing per-frame chunking alone would keep image
+       fetch/decode load spread out. It doesn't -- chunking only staggers
+       when each <img> element is *created*, not the cost of the network
+       fetch + decode it kicks off. For a category with a few hundred
+       channels, eager-loading every logo means a few hundred concurrent
+       fetches + decodes are all in flight within the first second or two,
+       and on a weak TV SoC that decode/network contention is exactly what
+       stalls the main thread and makes every subsequent remote keypress feel
+       stuck -- not just the "first scroll into a fresh row" case the eager
+       change was trying to solve. Restored native lazy loading (same as the
+       in-player channel overlay's cards, which never had this bug) so only
+       logos actually near the viewport load, keeping concurrent decode work
+       low no matter how large the channel list is. */
+    img.loading = 'lazy';
     img.decoding = 'async';
     img.src = ch.logo || DEFAULT_LOGO;
     img.onerror = function() { img.src = DEFAULT_LOGO; };
