@@ -506,7 +506,15 @@
     scroll-padding-top: 8px;
     scroll-padding-bottom: 40px;
     overscroll-behavior-y: contain;
-    scroll-behavior: smooth;
+    /* REMOTE-NAV PERF FIX #10: this was `scroll-behavior: smooth`. The grid/
+       sidebar navigation JS calls `scrollIntoView({ behavior: 'auto' })` on
+       every remote keypress, but per spec `behavior: 'auto'` defers to this
+       CSS property -- so every single card/category focus move was still
+       silently doing an animated (~300ms+) smooth scroll on a weak TV CPU.
+       Fast remote button repeats piled up behind that animation, which is
+       exactly the "stuck/laggy" navigation feeling. Setting this to `auto`
+       makes focus moves jump instantly, in sync with each button press. */
+    scroll-behavior: auto;
     background: transparent;
   }
   .content-area::-webkit-scrollbar { display: none; }
@@ -4835,4 +4843,4 @@ window.addEventListener('keydown', function() {
 } /* end of window.__HT_BLOCKED guard */
 </script>
 </body>
-</html> 
+</html>
