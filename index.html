@@ -527,6 +527,9 @@
     row-gap: 14px;
     width: 100%;
     align-content: start;
+    /* Positioned so .focus-ring (see below) can be placed absolutely
+       inside it and move with the grid when it scrolls. */
+    position: relative;
     padding-bottom: calc(60px + env(safe-area-inset-bottom, 16px));
     /* REMOTE-NAV PERF FIX #15: `card.scrollIntoView()` (called on every
        Up/Down/Left/Right press) forces the browser to flush layout
@@ -555,25 +558,14 @@
     text-align: center;
     cursor: pointer;
     outline: none;
-    /* PERF FIX #8: `will-change: transform` used to sit here on the BASE
-       rule, which applies to every single channel card in the grid — on a
-       list of a few hundred channels that silently promotes a few hundred
-       elements to their own GPU compositor layer, permanently, even for
-       cards that are never focused or hovered. That is the single biggest
-       cause of TV-wide hangs: the compositor has to track hundreds of live
-       layers just sitting there. `will-change` is now applied ONLY to the
-       one card that is actually focused/hovered (see rules below), so at
-       most 1-2 layers exist at any time instead of hundreds. */
-    /* REMOTE-NAV PERF FIX #12: this used to be 0.1s. On a real remote, Up/
-       Down/Left/Right auto-repeats faster than that once a button is held,
-       so a new keypress was arriving before the previous card had finished
-       transitioning back to its resting size. The browser has to abort the
-       in-flight transition and start a new one, which is what reads as the
-       highlight "freezing" or "not moving immediately" mid-navigation.
-       Shortening this (and the matching .card.kbfocus transition below) so
-       it reliably finishes well within one repeat interval removes that
-       visible stutter. */
-    transition: transform 0.06s ease, border-color 0.06s ease, box-shadow 0.06s ease;
+    /* PERF FIX #8 / REMOTE-NAV PERF FIX #16: `will-change` and `transform`
+       are intentionally NOT part of keyboard/remote focus styling anymore --
+       focus is now shown by moving a single separate `.focus-ring` element
+       (see that rule below) instead of scaling/glowing the card itself.
+       This transition only still matters for the mouse-hover state
+       (`.card:hover` below), which is naturally rate-limited by human mouse
+       movement and never fires anywhere near remote auto-repeat speed. */
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
     position: relative;
     z-index: 1;
   }
@@ -590,28 +582,61 @@
     z-index: 5;
   }
 
-  .card.kbfocus {
+  /*
+   * REMOTE-NAV PERF FIX #16 (final root cause): every earlier fix above
+   * (caching, RAF coalescing, contain:layout, shorter transitions) reduced
+   * how much work each keypress does, but every card that ever received
+   * `.kbfocus` still went through: a border-WIDTH change (1.5px -> 2.5px,
+   * which is a layout-affecting property, not just paint), a `box-shadow`
+   * fade (box-shadow is rasterized/painted every frame it changes -- it can
+   * never be compositor-only), and a `transform: scale(1.1)` combined with
+   * `will-change: transform` that only existed WHILE `.kbfocus` was applied.
+   * That last part is the real hang: adding/removing `will-change` toggles
+   * GPU compositor-layer creation and destruction on every single card move.
+   * Layer creation/destruction is main-thread work that has to be
+   * committed to the compositor -- and that commit step is exactly what
+   * was blocking/delaying the *separate* header ticker's compositor
+   * animation from updating smoothly at the same time, which is why the
+   * ticker specifically stutters only while navigating cards.
+   *
+   * Fix: stop animating the card itself. A single dedicated `.focus-ring`
+   * element (see below) is created once, promoted to its own compositor
+   * layer once, and then only ever *moved* with `transform: translate3d()`
+   * to sit on top of whichever card is focused. Moving an already-promoted
+   * layer is a compositor-thread-only operation with zero paint and zero
+   * layout, so it costs the same whether there are 6 cards or 600, and it
+   * can never contend with the ticker's own compositor layer. `.kbfocus` on
+   * the card itself is now purely a text-color change (cheap, tiny-area
+   * paint, no layer implications).
+   */
+
+  /* Single floating highlight that represents keyboard/remote focus in the
+     grid. Created once in JS and moved (never re-created) between cards --
+     see REMOTE-NAV PERF FIX #16 above. */
+  .focus-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-radius: 10px;
     border: 2.5px solid var(--focus);
-    background: #111111;
     box-shadow: 0 0 18px rgba(0, 230, 118, 0.5);
-    transform: scale(1.1);
-    /* PERF FIX #8: will-change scoped to just the focused card, and only
-       while it is actually animating in/out of focus. */
-    will-change: transform;
-    /* REMOTE-NAV PERF FIX #12: shortened from 0.15s to match the base .card
-       rule above -- see that comment for why a long transition here made
-       fast/held remote presses look like navigation had stalled. */
-    transition: border-color 0.06s ease, box-shadow 0.06s ease, transform 0.06s ease;
+    pointer-events: none;
+    opacity: 0;
     z-index: 6;
+    will-change: transform;
+    transform: translate3d(-9999px, -9999px, 0) scale(1.1);
+    transition: transform 0.09s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.12s ease;
   }
-  body:not(.kb-mode) .card.kbfocus {
-    animation: none;
-    transform: none;
-    border: 1.5px solid var(--border);
-    background: var(--surface);
-    box-shadow: none;
-    z-index: 1;
-  }
+  .focus-ring.visible { opacity: 1; }
+  body.kb-mode .focus-ring { display: block; }
+  body:not(.kb-mode) .focus-ring { display: none; }
+  /* Same intent as the old `body:not(.kb-mode) .card.kbfocus` reset: don't
+     leave the last keyboard-focused card's text/badge looking "focused"
+     once the user switches to mouse/pointer mode. */
+  body:not(.kb-mode) .card.kbfocus .card-name { color: var(--text); }
+  body:not(.kb-mode) .card.kbfocus .card-new-badge { background: #e11d48; color: #ffffff; box-shadow: 0 2px 8px rgba(225,29,72,0.7); }
 
   .card-logo {
     width: 100%;
@@ -2808,6 +2833,12 @@ let activePane        = 'sidebar';
 let catFocusIdx       = 0;
 let catActiveIdx      = 0;
 let gridFocusIdx      = 0;
+/* REMOTE-NAV PERF FIX #16: single reusable floating highlight element for
+   grid keyboard/remote focus -- see the `.focus-ring` CSS comment above for
+   why this replaced animating the card itself. Recreated once per
+   renderGrid() call (since grid.innerHTML is cleared then) and just moved
+   with transform afterwards. */
+let _focusRingEl      = null;
 let overlayFocusIdx   = 0;
 let controlFocusIdx   = 0;
 let infoFocusIdx      = 0;
@@ -3190,7 +3221,13 @@ function getGridCols() {
   return _gridColsCache;
 }
 function getOverlayCols() { return 1; }
-window.addEventListener('resize', function() { _gridColsCache = 0; _overlayColsCache = 0; }, { passive: true });
+window.addEventListener('resize', function() {
+  _gridColsCache = 0; _overlayColsCache = 0;
+  // Card positions/sizes change on resize -- snap the floating focus ring
+  // to the (possibly moved) currently-focused card so it doesn't stay
+  // parked at its old coordinates.
+  if (activePane === 'grid' && _focusedCardEl) requestAnimationFrame(function() { positionFocusRing(_focusedCardEl); });
+}, { passive: true });
 
 /*
  * REMOTE-NAV PERF FIX: `getCards()` used to run `document.querySelectorAll('.card')`
@@ -3228,8 +3265,37 @@ function _invalidateOCards() {
 
 let _focusedCardEl = null;
 function clearCardKbFocus() {
+  hideFocusRing();
   if (_focusedCardEl) { _focusedCardEl.classList.remove('kbfocus'); _focusedCardEl = null; return; }
   document.querySelectorAll('.card.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); });
+}
+
+/*
+ * REMOTE-NAV PERF FIX #16: moves the single `.focus-ring` element (created
+ * once per renderGrid() in `ensureFocusRing()`) to sit exactly on top of
+ * `card`, using `card`'s already-computed offset position within `.grid`
+ * (its positioned ancestor). This is a pure `transform`/size write on one
+ * persistently-promoted compositor layer -- no class churn, no will-change
+ * add/remove, no border/box-shadow repaint on the card itself -- so it
+ * costs the same tiny amount of work no matter how large the channel list
+ * is, and it can no longer contend with the header ticker's own compositor
+ * layer for a commit.
+ */
+function positionFocusRing(card) {
+  if (!_focusRingEl) return;
+  var w = card.offsetWidth, h = card.offsetHeight;
+  var x = card.offsetLeft, y = card.offsetTop;
+  _focusRingEl.style.width  = w + 'px';
+  _focusRingEl.style.height = h + 'px';
+  // Same translate3d + scale(1.1) combo as the CSS default below, so the
+  // highlighted card still visually "pops" the way the old per-card
+  // transform did -- just applied to this one persistently-promoted layer
+  // instead of the card itself.
+  _focusRingEl.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0) scale(1.1)';
+  _focusRingEl.classList.add('visible');
+}
+function hideFocusRing() {
+  if (_focusRingEl) _focusRingEl.classList.remove('visible');
 }
 function clearOverlayKbFocus() {
   document.querySelectorAll('.overlay-card.kbfocus').forEach(function(card) {
@@ -3631,6 +3697,12 @@ function renderGrid() {
   grid.innerHTML = '';
   invalidateGridCardsCache();
   _focusedCardEl = null;
+  /* grid.innerHTML above wipes out any previous .focus-ring node, so it is
+     recreated here (once per render, not once per keypress) and reused for
+     every focus move until the next renderGrid(). */
+  _focusRingEl = document.createElement('div');
+  _focusRingEl.className = 'focus-ring';
+  grid.appendChild(_focusRingEl);
   grid.classList.toggle('fav-picker', showingFavPicker);
   const renderToken = ++_gridRenderToken;
   if (!filteredChannels.length) {
@@ -3923,6 +3995,7 @@ function setGridFocus(idx) {
   if (_focusedCardEl && _focusedCardEl !== card) _focusedCardEl.classList.remove('kbfocus');
   card.classList.add('kbfocus');
   _focusedCardEl = card;
+  positionFocusRing(card);
   card.scrollIntoView({ block: 'nearest', behavior: 'auto' });
 }
 
