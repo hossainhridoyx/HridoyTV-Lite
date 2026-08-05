@@ -4904,7 +4904,27 @@ vid.addEventListener('canplay',  function() { hideLoading(); hideBufferBadge(); 
 renderInfoList();
 loadPlaylist();
 
-window.addEventListener('mousemove', function() {
+/* REMOTE-NAV PERF FIX #14: `.kb-mode` gates a bunch of `body:not(.kb-mode)
+   .card:hover` / `.overlay-card:hover` rules, so toggling it on <body> forces
+   the browser to re-evaluate hover/focus styles for EVERY card in the grid
+   (hundreds on a big category), not just the one card being focused. That
+   was previously done on every single `mousemove`, with no check that the
+   pointer had actually moved. Many smart TV / remote-control runtimes fire
+   synthetic `mousemove` events (identical coordinates, no real motion) as a
+   side effect of D-pad navigation — so every remote press was triggering a
+   real mouse-move (removes kb-mode, full-grid style recalc) immediately
+   followed by the keydown handler putting it back (another full-grid style
+   recalc), twice per keypress. On a weak TV CPU that synchronous recalc is
+   exactly what was reading as "cards and the header ticker freeze while
+   navigating" — the main thread stalls long enough to visibly stutter both.
+   Now the mousemove handler ignores events that report the same coordinates
+   as last time, so fake/no-op mousemove noise from the remote no longer
+   fights with keyboard mode on every press; only an actual pointer move
+   drops out of keyboard mode. */
+let _lastMouseX = null, _lastMouseY = null;
+window.addEventListener('mousemove', function(e) {
+  if (e.clientX === _lastMouseX && e.clientY === _lastMouseY) return;
+  _lastMouseX = e.clientX; _lastMouseY = e.clientY;
   document.body.classList.remove('kb-mode');
 }, { passive: true });
 
