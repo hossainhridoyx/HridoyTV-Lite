@@ -851,26 +851,12 @@
     transform: translateZ(0);
     will-change: contents;
   }
-
-  /* BUGFIX: everything that should visually dim while a popup is open on top
-     of the player (video, OSD, controls, channel/favs overlays) lives inside
-     this wrapper instead of directly inside #player-wrap. #popup-overlay is
-     appended as a *sibling* of this wrapper (directly under #player-wrap,
-     see openPlayer()), so the "body.popup-open" dim filter below — which
-     used to be applied to #player-wrap itself — never lands on the popup
-     anymore. Previously the popup was a descendant of the dimmed element,
-     so the CSS filter (which affects the rendered pixels of the whole
-     subtree it's applied to, not just the element itself) was darkening the
-     "How to fix?" / "Contact us" popup along with its border, shadow and
-     gradient — which is exactly why the design looked flat/compact and the
-     popup looked like it was showing "in the dark". absolute + inset:0 keeps
-     this wrapper pixel-identical to #player-wrap (100vw x 100vh) so nothing
-     inside it shifts position or size. */
-  #player-media {
+  /* BUGFIX: wrapper for everything in the player EXCEPT #popup-overlay, so
+     the popup-open dimming filter (see body.popup-open rule above) can
+     target this instead of #player-wrap and never dim the popup itself. */
+  #player-stage {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    top: 0; left: 0; right: 0; bottom: 0;
   }
 
   .player-watermark {
@@ -1714,7 +1700,19 @@
     filter: brightness(0.5);
     pointer-events: none;
   }
-  body.popup-open #player-media {
+  /* BUGFIX: dimming used to target #player-wrap itself, but #popup-overlay is
+     moved *inside* #player-wrap while the player is open (see openPlayer's
+     BUGFIX comment). A CSS filter applied to a parent dims the parent's
+     entire rendered output as one flattened layer, including all descendants
+     — so the "How to fix?" / "Contact Us" popup was getting dimmed along
+     with the video behind it (the popup looked like it opened "in the
+     dark"), instead of standing out brightly against a dimmed background
+     like it does everywhere else in the app. Fix: dim only #player-stage —
+     the wrapper that holds the video/controls/overlays — and keep
+     #popup-overlay as a sibling of #player-stage (still inside #player-wrap,
+     so Fullscreen API compositing keeps working) so it is never inside the
+     dimmed subtree. */
+  body.popup-open #player-stage {
     filter: brightness(0.5);
   }
 
@@ -2692,11 +2690,7 @@
 
 <!-- ── Player ── -->
 <div id="player-wrap">
-  <!-- player-media wraps everything that should dim when a popup opens on
-       top of the player. #popup-overlay is appended as a sibling of this
-       wrapper (see openPlayer()/closePlayer() in the script below), so the
-       dim filter applied to #player-media never affects the popup. -->
-  <div id="player-media">
+ <div id="player-stage">
   <video id="vid" playsinline loop crossorigin="anonymous" referrerpolicy="no-referrer"></video>
   <img src="https://i.postimg.cc/8k7t1Zhd/hridoytv-logo-h.png" class="player-watermark" alt="HridoyTV">
   <div id="osd">
@@ -2756,7 +2750,7 @@
     </div>
     <div class="overlay-grid" id="favs-grid"></div>
   </div>
-  </div><!-- /#player-media -->
+ </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
@@ -4750,31 +4744,6 @@ window.addEventListener('keydown', function(e) {
   const key  = e.key;
   const code = e.keyCode;
 
-  /* BUGFIX (TV remote Back leaves a popup stuck open): "How to fix?" /
-     "Contact us" can be opened from ON TOP of the offline card or the
-     state-error card (see the openPopup('streamFix'/'contact') calls
-     below), so popupOpen can be true at the same time as offlineCardOpen
-     or stateErrorOpen. This check used to run AFTER those two, so a TV
-     remote's physical Back key (delivered here as a keydown with codes
-     like 461/10009 on webOS/Tizen — those platforms do not route the
-     hardware Back key through popstate/history the way Android does) fell
-     into the offlineCardOpen/stateErrorOpen branch first and closed the
-     card *underneath*, while leaving the popup on top still open/active.
-     Since mobile users dismiss popups by tapping the visible close button
-     (which calls closePopup() directly, bypassing this whole keydown
-     chain), the bug was only ever reachable via a TV remote's Back key —
-     which is exactly why it only showed up on TV. The topmost layer must
-     always be closed first, so this check now runs before every other
-     open-panel check in this handler. */
-  if (popupOpen) {
-    e.stopImmediatePropagation();
-    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { e.preventDefault(); closePopup(); }
-    else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); closePopup(); }
-    else if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); popupBody.scrollBy({ top: 80, behavior: 'smooth' }); }
-    else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); popupBody.scrollBy({ top: -80, behavior: 'smooth' }); }
-    return;
-  }
-
   if (dlNoticeOpen) {
     e.preventDefault(); e.stopImmediatePropagation();
     if (key === 'ArrowLeft' || key === 'Left') _dlDownload.focus();
@@ -4784,6 +4753,27 @@ window.addEventListener('keydown', function(e) {
       if (document.activeElement === _dlClose) closeDownloadNotice();
       else _dlDownload.click();
     }
+    return;
+  }
+
+  /* BUGFIX: #popup-overlay ("How to fix?"/"Contact Us"/etc.) can be opened
+     ON TOP of the offline card (offlineFixBtn/offlineContactBtn set
+     offlineCardOpen=true and then open the popup without closing the card
+     underneath it — see below). This check used to run AFTER the
+     offlineCardOpen check, so remote/keyboard Back, Enter and arrow keys
+     were still being routed to the offline card hidden underneath instead
+     of the popup that's actually visible on top of it — e.g. Back would
+     silently hide the whole offline card instead of just closing the
+     popup, and Enter would re-click an offline button instead of doing
+     anything to the popup. popupOpen is now checked first so input always
+     goes to whichever layer is actually on top (matches the visible
+     z-index stacking: popup > offline card). */
+  if (popupOpen) {
+    e.stopImmediatePropagation();
+    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { e.preventDefault(); closePopup(); }
+    else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); closePopup(); }
+    else if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); popupBody.scrollBy({ top: 80, behavior: 'smooth' }); }
+    else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); popupBody.scrollBy({ top: -80, behavior: 'smooth' }); }
     return;
   }
 
@@ -5026,25 +5016,28 @@ window.addEventListener('keydown', function(e) {
    closing that panel — leaving the panel's "open" state stuck for a frame
    and skipping the same step-by-step back behaviour the remote/keyboard
    Back key already has (see the BACK_KEYS handling above). Now popstate
-   closes whichever panel is on top first (quality panel, then channel/favs
+   closes whichever panel is on top first (the "How to fix?"/"Contact Us"
+   popup, then the offline card, then the quality panel, then channel/favs
    overlay, then the controls bar) and re-pushes a history entry so the next
    Back press continues the same step-by-step close; only once nothing is
-   open on top of the video does Back fully exit the player. */
+   open on top of the video does Back fully exit the player.
+   BUGFIX: this used to skip straight to closePlayer() even while the
+   "How to fix?" / "Contact Us" popup (#popup-overlay) or the offline card
+   was open. closePlayer() moves #popup-overlay back out of #player-wrap so
+   it renders in normal document flow again, but it never closed the popup
+   itself — so a popup left open when the phone/TV Back button was pressed
+   would still be "active" and immediately reappear on top of the home
+   screen / channel guard right after the player closed. Now popstate closes
+   the popup (and the offline card) first, same as every other panel. */
 window.addEventListener('popstate', function() {
   if (!playerOpen) return;
-  /* BUGFIX: a popup ("How to fix?" / "Contact us" / etc.) opened on top of
-     the player does not push its own history entry, so a hardware/remote
-     Back press (which fires this native popstate event, unlike the
-     in-app BACK_KEYS handling above which only sees `keydown`) used to fall
-     straight through to closePlayer() while the popup was still open and
-     .active. closePlayer() then moves #popup-overlay back out of
-     #player-wrap so it renders in normal flow again — except it was still
-     open, so it reappeared floating over the home/channel-grid screen
-     underneath. Close the popup first (mirroring how the quality/overlay
-     panels below are closed one layer at a time) so Back only ever exits
-     the player once nothing is open on top of it. */
   if (popupOpen) {
     closePopup();
+    history.pushState({ player: true }, '');
+    return;
+  }
+  if (offlineCardOpen) {
+    hideOfflineCard();
     history.pushState({ player: true }, '');
     return;
   }
