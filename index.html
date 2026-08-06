@@ -852,6 +852,27 @@
     will-change: contents;
   }
 
+  /* BUGFIX: everything that should visually dim while a popup is open on top
+     of the player (video, OSD, controls, channel/favs overlays) lives inside
+     this wrapper instead of directly inside #player-wrap. #popup-overlay is
+     appended as a *sibling* of this wrapper (directly under #player-wrap,
+     see openPlayer()), so the "body.popup-open" dim filter below — which
+     used to be applied to #player-wrap itself — never lands on the popup
+     anymore. Previously the popup was a descendant of the dimmed element,
+     so the CSS filter (which affects the rendered pixels of the whole
+     subtree it's applied to, not just the element itself) was darkening the
+     "How to fix?" / "Contact us" popup along with its border, shadow and
+     gradient — which is exactly why the design looked flat/compact and the
+     popup looked like it was showing "in the dark". absolute + inset:0 keeps
+     this wrapper pixel-identical to #player-wrap (100vw x 100vh) so nothing
+     inside it shifts position or size. */
+  #player-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
   .player-watermark {
     position: absolute;
     bottom: 28px; right: 36px;
@@ -1035,30 +1056,25 @@
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%) scale(0.88);
-    /* DESIGN FIX: flat near-black fill + thin low-contrast border read as
-       "compact"/unfinished next to the other popups in this app (popup-box,
-       .popup-box.stream-fix-popup), which all use a layered gradient fill,
-       a brand-tinted border, and a stronger multi-layer shadow. Matched that
-       same treatment here for visual consistency. */
-    background: linear-gradient(160deg, rgba(20, 23, 27, 0.97) 0%, rgba(8, 9, 11, 0.98) 100%);
-    border: 1.5px solid rgba(0, 230, 118, 0.24);
-    border-radius: clamp(16px, 1.6vw, 26px);
-    padding: clamp(28px, 3.4vw, 58px) clamp(30px, 4.2vw, 70px);
+    background: rgba(12, 14, 18, 0.96);
+    border: 1.5px solid rgba(255, 255, 255, 0.13);
+    border-radius: clamp(14px, 1.4vw, 24px);
+    padding: clamp(22px, 2.6vw, 50px) clamp(24px, 3.2vw, 62px);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: clamp(16px, 1.7vw, 28px);
+    gap: clamp(14px, 1.3vw, 24px);
     z-index: 100004;
     opacity: 0;
     pointer-events: none;
     text-align: center;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 24px 70px rgba(0,0,0,0.7), 0 40px 110px rgba(0,0,0,0.5);
+    box-shadow: 0 24px 70px rgba(0,0,0,0.7);
     /* PERF FIX #4: backdrop-filter blur removed; the card background is already
-       near-solid (0.96+ alpha) so it stays fully readable without it. */
+       near-solid (0.96 alpha) so it stays fully readable without it. */
     will-change: opacity, transform;
     transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    min-width: clamp(300px, 30vw, 560px);
-    max-width: min(clamp(360px, 42vw, 660px), 92vw);
+    min-width: clamp(280px, 28vw, 540px);
+    max-width: min(clamp(340px, 40vw, 640px), 92vw);
   }
   #offline-card.visible {
     opacity: 1;
@@ -1136,12 +1152,7 @@
   }
 
   @media (min-width: 1200px) {
-    /* DESIGN FIX: this used to shrink the gap below the base clamp's own
-       computed value at TV widths (clamp(10px,0.9vw,18px) ≈ 10.8px at
-       1200px vs. the base clamp(16px,1.7vw,28px) ≈ 20.4px it was overriding),
-       i.e. the card got *tighter* on the exact screens (TVs) this app targets
-       most. Made it scale up like every other popup's TV breakpoint instead. */
-    #offline-card { border-width: 2px; gap: clamp(20px, 1.6vw, 32px); }
+    #offline-card { border-width: 2px; gap: clamp(10px, 0.9vw, 18px); }
     .offline-btn { border-width: 2px; }
   }
 
@@ -1703,18 +1714,7 @@
     filter: brightness(0.5);
     pointer-events: none;
   }
-  /* BUGFIX: dimming #player-wrap itself used to also dim #popup-overlay,
-     because openPlayer() moves #popup-overlay INSIDE #player-wrap while the
-     player is open (see the BUGFIX comment on that line) so it can render
-     correctly in native Fullscreen. A CSS filter renders its *entire*
-     subtree through that filter as one image, so the moved-in popup (its
-     own near-opaque box) was being darkened along with the video underneath
-     it -- "How to fix?" / "Contact Us" opened looking washed-out/low-opacity
-     instead of the crisp popup shown outside the player. Scoping the filter
-     to #player-wrap's other direct children (video, OSD, controls, quality
-     panel, channel/favs overlays) keeps the dim effect on the player while
-     leaving #popup-overlay -- wherever it currently lives -- unaffected. */
-  body.popup-open #player-wrap > *:not(#popup-overlay) {
+  body.popup-open #player-media {
     filter: brightness(0.5);
   }
 
@@ -2692,6 +2692,11 @@
 
 <!-- ── Player ── -->
 <div id="player-wrap">
+  <!-- player-media wraps everything that should dim when a popup opens on
+       top of the player. #popup-overlay is appended as a sibling of this
+       wrapper (see openPlayer()/closePlayer() in the script below), so the
+       dim filter applied to #player-media never affects the popup. -->
+  <div id="player-media">
   <video id="vid" playsinline loop crossorigin="anonymous" referrerpolicy="no-referrer"></video>
   <img src="https://i.postimg.cc/8k7t1Zhd/hridoytv-logo-h.png" class="player-watermark" alt="HridoyTV">
   <div id="osd">
@@ -2751,6 +2756,7 @@
     </div>
     <div class="overlay-grid" id="favs-grid"></div>
   </div>
+  </div><!-- /#player-media -->
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
@@ -4085,40 +4091,9 @@ function exitRealFullscreen() {
   if (document.fullscreenElement || document.webkitFullscreenElement)
     document.exitFullscreen().catch(function() {});
 }
-/* BUGFIX: pressing the literal Escape key -- what a keyboard/some TV
-   browsers' Back maps to -- is treated by the browser itself as a
-   privileged "exit fullscreen now" action. preventDefault()/
-   stopPropagation() in our keydown handler cannot cancel it, so on the
-   *same* keypress that our handler used to just close one inner layer
-   (a popup, the offline card, the quality panel, the channel/favs
-   overlay, the controls bar), the browser was independently exiting
-   real Fullscreen too -- which fires fullscreenchange below and used to
-   unconditionally closePlayer(), tearing down the whole player instead of
-   stepping back one level like every other panel in the app.
-   By the time fullscreenchange fires, our keydown handler has already run
-   and flipped popupOpen/offlineCardOpen/etc. back to false, so checking
-   *current* state here can't tell "we just closed an inner layer" apart
-   from "nothing was open". Each inner-layer Back branch below instead
-   calls _markStayInPlayer() the instant it fires, and this flag (not
-   live state) is what onFullscreenChange checks. */
-let _stayInPlayerOnFsExit  = false;
-let _stayInPlayerFlagTimer = null;
-function _markStayInPlayer() {
-  _stayInPlayerOnFsExit = true;
-  clearTimeout(_stayInPlayerFlagTimer);
-  _stayInPlayerFlagTimer = setTimeout(function() { _stayInPlayerOnFsExit = false; }, 500);
-}
 function onFullscreenChange() {
   if (isAppMode()) return;
-  if (!document.fullscreenElement && !document.webkitFullscreenElement && playerOpen) {
-    if (_stayInPlayerOnFsExit) {
-      _stayInPlayerOnFsExit = false;
-      clearTimeout(_stayInPlayerFlagTimer);
-      enterRealFullscreen();
-      return;
-    }
-    closePlayer();
-  }
+  if (!document.fullscreenElement && !document.webkitFullscreenElement && playerOpen) closePlayer();
 }
 document.addEventListener('fullscreenchange', onFullscreenChange);
 document.addEventListener('webkitfullscreenchange', onFullscreenChange);
@@ -4789,7 +4764,7 @@ window.addEventListener('keydown', function(e) {
 
   if (offlineCardOpen) {
     e.preventDefault(); e.stopImmediatePropagation();
-    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { _markStayInPlayer(); hideOfflineCard(); }
+    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') hideOfflineCard();
     else if (key === 'ArrowRight' || key === 'Right') setOfflineFocus(1);
     else if (key === 'ArrowLeft' || key === 'Left') setOfflineFocus(0);
     else if (ENTER_KEYS.has(code) || key === 'Enter') [offlineFixBtn, offlineContactBtn][offlineFocusIdx].click();
@@ -4809,7 +4784,7 @@ window.addEventListener('keydown', function(e) {
 
   if (popupOpen) {
     e.stopImmediatePropagation();
-    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { e.preventDefault(); _markStayInPlayer(); closePopup(); }
+    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { e.preventDefault(); closePopup(); }
     else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); closePopup(); }
     else if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); popupBody.scrollBy({ top: 80, behavior: 'smooth' }); }
     else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); popupBody.scrollBy({ top: -80, behavior: 'smooth' }); }
@@ -4820,16 +4795,13 @@ window.addEventListener('keydown', function(e) {
     if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') {
       e.preventDefault();
       if (qualityPanelOpen) {
-        _markStayInPlayer();
         hideQualityPanel();
         playerUiMode = 'controls';
         qualityBtn.focus();
         resetControlTimer();
       } else if (playerUiMode === 'overlay' || playerUiMode === 'favs') {
-        _markStayInPlayer();
         hideAllPlayerPanels();
       } else if (playerUiMode === 'controls') {
-        _markStayInPlayer();
         hideAllPlayerPanels();
       } else {
         history.back();
@@ -5043,27 +5015,23 @@ window.addEventListener('keydown', function(e) {
    Back press continues the same step-by-step close; only once nothing is
    open on top of the video does Back fully exit the player. */
 window.addEventListener('popstate', function() {
-  /* BUGFIX: a phone/browser Back gesture fires popstate instead of a
-     keydown Back key, so it skipped the `if (popupOpen) ... closePopup()`
-     branch in the keydown handler above entirely. This handler used to jump
-     straight to the player's own panel-closing logic (or closePlayer()),
-     which only moves #popup-overlay back out of #player-wrap without
-     closing it -- so a "How to fix?"/"Contact Us" popup left open would
-     still have `.active` set and stay visible, now rendered on top of the
-     home/channel-grid screen once the player closed underneath it. Close
-     it here first, the same way the keydown handler does, before falling
-     through to the player/offline-card checks below. */
+  if (!playerOpen) return;
+  /* BUGFIX: a popup ("How to fix?" / "Contact us" / etc.) opened on top of
+     the player does not push its own history entry, so a hardware/remote
+     Back press (which fires this native popstate event, unlike the
+     in-app BACK_KEYS handling above which only sees `keydown`) used to fall
+     straight through to closePlayer() while the popup was still open and
+     .active. closePlayer() then moves #popup-overlay back out of
+     #player-wrap so it renders in normal flow again — except it was still
+     open, so it reappeared floating over the home/channel-grid screen
+     underneath. Close the popup first (mirroring how the quality/overlay
+     panels below are closed one layer at a time) so Back only ever exits
+     the player once nothing is open on top of it. */
   if (popupOpen) {
     closePopup();
-    if (playerOpen) history.pushState({ player: true }, '');
+    history.pushState({ player: true }, '');
     return;
   }
-  if (offlineCardOpen) {
-    hideOfflineCard();
-    if (playerOpen) history.pushState({ player: true }, '');
-    return;
-  }
-  if (!playerOpen) return;
   if (qualityPanelOpen) {
     hideQualityPanel();
     playerUiMode = 'controls';
