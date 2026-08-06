@@ -353,6 +353,16 @@
     border-color: var(--focus);
     color: #ffffff;
   }
+  /* REMOTE-NAV FIX: keyboard/remote focus highlight for the "Add Favs" row so
+     it is clearly reachable when navigating up from the top of the category
+     list, matching the .cat-item.kbfocus treatment used below it. */
+  .fav-add-item.kbfocus {
+    background: rgba(0, 230, 118, 0.22);
+    border-color: #ffffff;
+    border-left-color: #ffffff;
+    color: #ffffff;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+  }
   .fav-notice {
     position: fixed;
     /* Keep the confirmation clear of the left-side Favs controls. */
@@ -2832,6 +2842,12 @@ let _playbackPausedByUser = false;
 let activePane        = 'sidebar';
 let catFocusIdx       = 0;
 let catActiveIdx      = 0;
+/* REMOTE-NAV FIX: tracks whether keyboard/remote focus inside the sidebar is
+   currently sitting on the "Add Favs" row above the category list (instead
+   of on one of the .cat-item buttons). Needed because #add-favs-btn lives
+   outside #cat-list, so it was never part of getCatItems() and pressing Up
+   from the top category (Favs) had nowhere to go. */
+let sidebarOnAddFavs  = false;
 let gridFocusIdx      = 0;
 /* REMOTE-NAV PERF FIX #16: single reusable floating highlight element for
    grid keyboard/remote focus -- see the `.focus-ring` CSS comment above for
@@ -3324,12 +3340,29 @@ function clearOverlayKbFocus() {
 let _focusedCatEl  = null;
 let _focusedInfoEl = null;
 function clearCatKbFocus() {
+  /* REMOTE-NAV FIX: also drop the "Add Favs" kbfocus highlight whenever
+     category-list focus is cleared, so the two never stay lit at once. */
+  if (sidebarOnAddFavs) { addFavsBtn.classList.remove('kbfocus'); sidebarOnAddFavs = false; }
   if (_focusedCatEl) { _focusedCatEl.classList.remove('kbfocus'); _focusedCatEl = null; return; }
   document.querySelectorAll('.cat-item.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); });
 }
 function clearInfoKbFocus() {
   if (_focusedInfoEl) { _focusedInfoEl.classList.remove('kbfocus'); _focusedInfoEl = null; return; }
   document.querySelectorAll('.info-item.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); });
+}
+/* REMOTE-NAV FIX: gives keyboard/remote focus to the "Add Favs" row that
+   sits above the category list. Mirrors setCatFocus()'s bookkeeping
+   (clearing the other pane's focus, scrolling into view) so the rest of the
+   navigation code doesn't need to special-case it beyond checking
+   `sidebarOnAddFavs`. */
+function focusAddFavsBtn() {
+  if (addFavsBtn.hidden) return false;
+  clearInfoKbFocus();
+  if (_focusedCatEl) { _focusedCatEl.classList.remove('kbfocus'); _focusedCatEl = null; }
+  sidebarOnAddFavs = true;
+  addFavsBtn.classList.add('kbfocus');
+  addFavsBtn.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  return true;
 }
 
 function showStateLoading() {
@@ -4910,9 +4943,21 @@ window.addEventListener('keydown', function(e) {
 
   if (activePane === 'sidebar') {
     const catItems = getCatItems();
-    if (!catItems.length) { activePane = 'info'; setInfoFocus(0); return; }
+    if (!catItems.length && addFavsBtn.hidden) { activePane = 'info'; setInfoFocus(0); return; }
+    /* REMOTE-NAV FIX: "Add Favs" sits above the category list (visually
+       above "Favs"), but it lives outside #cat-list so getCatItems() never
+       included it -- pressing Up from the top category used to just clamp
+       back to itself with nowhere left to go. sidebarOnAddFavs now tracks
+       that extra focus stop explicitly. */
+    if (sidebarOnAddFavs) {
+      if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); if (catItems.length) setCatFocus(0); else setInfoFocus(0); }
+      else if (key === 'ArrowRight' || key === 'Right') { e.preventDefault(); if (filteredChannels.length > 0) { activePane = 'grid'; setGridFocus(Math.min(gridFocusIdx, filteredChannels.length - 1)); } }
+      else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); addFavsBtn.click(); }
+      /* ArrowUp: already at the very top of the sidebar -- nothing to do. */
+      return;
+    }
     if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); if (catFocusIdx + 1 < catItems.length) setCatFocus(catFocusIdx + 1); else setInfoFocus(0); }
-    else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); setCatFocus(catFocusIdx - 1); }
+    else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); if (catFocusIdx === 0 && !addFavsBtn.hidden) focusAddFavsBtn(); else setCatFocus(catFocusIdx - 1); }
     else if (key === 'ArrowRight' || key === 'Right') { e.preventDefault(); if (filteredChannels.length > 0) { activePane = 'grid'; setGridFocus(Math.min(gridFocusIdx, filteredChannels.length - 1)); } }
     else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); catItems[catFocusIdx].click(); }
     return;
