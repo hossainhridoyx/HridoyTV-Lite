@@ -1851,7 +1851,18 @@
     z-index: 200000;
     align-items: center;
     justify-content: center;
+    /* BUGFIX: previously the roomy sizing below only applied inside
+       "@media (min-width: 800px/1200px)" blocks. Some TV WebViews report a
+       CSS viewport width that never crosses those thresholds (even though the
+       physical screen is large), so the popup was permanently stuck on the
+       smallest/"mobile" sizing tier -- which is what looked "compact" on TV
+       while a normal desktop browser window (always > 1200px) always got the
+       roomy tier. Fluid clamp() sizing below scales continuously with the
+       real viewport instead of jumping at a fixed breakpoint, so it looks
+       right at any width. A static fallback is declared first for very old
+       engines that don't understand clamp(). */
     padding: 28px 20px;
+    padding: clamp(24px, 5vw, 90px) clamp(20px, 5vw, 90px);
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
@@ -1868,9 +1879,12 @@
     background: linear-gradient(160deg, #111111 0%, #0a0a0a 100%);
     border: 1px solid rgba(0, 230, 118, 0.22);
     border-radius: 16px;
+    border-radius: clamp(16px, 1.6vw, 22px);
     padding: 0;
     width: min(340px, 92vw);
+    width: min(clamp(340px, 34vw, 560px), 92vw);
     max-height: min(420px, calc(100vh - 80px));
+    max-height: min(clamp(420px, 58vh, 620px), calc(100vh - 80px));
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -1889,73 +1903,18 @@
     to   { opacity: 1; transform: scale(1)    translateY(0);    }
   }
 
-  @media (min-width: 800px) {
-    /* BUGFIX: fixed-px padding here does not scale with the physical screen
-       size. On larger/high-resolution TV panels a 40-60px margin can be a
-       tiny sliver of the screen, and with TV overscan (many TVs crop a
-       percentage of the outer edge of the picture) that thin margin can end
-       up cropped away entirely, making the popup look like it's touching or
-       bleeding off the top/bottom of the screen. Percentage padding scales
-       with the actual viewport regardless of resolution, so it always keeps
-       a safe visible gap. */
-    .popup-overlay { padding: 6% 6%; }
-    .popup-box {
-      width: 460px;
-      max-width: calc(100vw - 120px);
-      max-height: 58vh;
-      border-radius: 18px;
-    }
-    .popup-header   { padding: 14px 18px 12px 18px; gap: 10px; }
-    .popup-icon     { font-size: 1.6rem; }
-    .popup-title    { font-size: 1.05rem; }
-    .popup-title-sub{ font-size: 0.76rem; margin-top: 2px; }
-    .popup-close-btn{ font-size: 0.76rem; padding: 7px 26px; }
-    .popup-body     { font-size: 0.88rem; line-height: 1.62; padding: 12px 18px 10px 18px; }
-    .popup-card     { padding: 8px 12px; margin-bottom: 7px; border-radius: 8px; }
-    .popup-card-label { font-size: 0.7rem; margin-bottom: 3px; }
-    .popup-card-value { font-size: 0.88rem !important; }
-    .popup-tag      { font-size: 0.72rem; padding: 2px 8px; }
-  }
-
+  /* BUGFIX: element-level padding/sizes used to only step up at these two
+     breakpoints (see note on .popup-overlay above). We still bump the
+     border-width and enable the thin scrollbar here since those aren't worth
+     making fluid, but font sizes/padding/gaps now live in the base rules
+     below as clamp() values so they scale correctly regardless of whether a
+     TV's reported viewport happens to cross 800px/1200px. */
   @media (min-width: 1200px) {
-    /* BUGFIX: same TV overscan/edge-bleed issue as the 800px breakpoint above,
-       just with a larger safe margin since this tier targets TVs specifically
-       (this is the same breakpoint the rest of the app treats as "TV"). */
-    .popup-overlay { padding: 7% 7%; }
-    .popup-box {
-      width: 560px;
-      max-width: calc(100vw - 200px);
-      max-height: 60vh;
-      border-radius: 22px;
-      border-width: 1.5px;
-    }
-    .popup-header   { padding: 18px 24px 14px 24px; gap: 14px; }
-    .popup-icon     { font-size: 2rem; }
-    .popup-title    { font-size: 1.22rem; }
-    .popup-title-sub{ font-size: 0.82rem; margin-top: 3px; }
-    .popup-close-btn{
-      font-size: 0.88rem;
-      padding: 11px 38px;
-      border-width: 2px;
-      border-radius: 30px;
-      letter-spacing: 0.1em;
-    }
-    .popup-close-btn:focus,
-    .popup-close-btn.kbfocus {
-      background: var(--focus);
-      color: #000;
-      box-shadow: 0 0 28px rgba(0,230,118,0.55);
+    .popup-box { border-width: 1.5px; }
+    .popup-close-btn.kbfocus,
+    .popup-close-btn:focus {
       transform: scale(1.05);
     }
-    .popup-footer-bar { padding: 12px 24px 14px 24px; }
-    .popup-body     { font-size: 0.95rem; line-height: 1.7; padding: 16px 24px 12px 24px; }
-    .popup-card     { padding: 11px 14px; margin-bottom: 9px; border-radius: 10px; }
-    .popup-card-label { font-size: 0.72rem; margin-bottom: 4px; }
-    .popup-card-value { font-size: 0.95rem !important; }
-    .popup-tag      { font-size: 0.76rem; padding: 3px 10px; border-radius: 6px; }
-  }
-
-  @media (min-width: 1200px) {
     .popup-body {
       scrollbar-width: thin;
       scrollbar-color: rgba(0,230,118,0.3) transparent;
@@ -1966,7 +1925,9 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    gap: clamp(10px, 1vw, 14px);
     padding: 12px 16px 10px 16px;
+    padding: clamp(12px, 1.6vw, 18px) clamp(16px, 2vw, 24px) clamp(10px, 1.2vw, 14px) clamp(16px, 2vw, 24px);
     border-bottom: 1px solid rgba(255,255,255,0.05);
     flex-shrink: 0;
     background: rgba(0,230,118,0.03);
@@ -1974,6 +1935,7 @@
 
   .popup-icon {
     font-size: 1.4rem;
+    font-size: clamp(1.4rem, 1.6vw, 2rem);
     line-height: 1;
     flex-shrink: 0;
   }
@@ -1981,6 +1943,7 @@
   .popup-title {
     font-family: var(--font);
     font-size: 0.9rem;
+    font-size: clamp(0.9rem, 1vw, 1.22rem);
     font-weight: 700;
     color: #ffffff;
     letter-spacing: 0.02em;
@@ -1990,6 +1953,7 @@
   }
   .popup-title-sub {
     font-size: 0.63rem;
+    font-size: clamp(0.63rem, 0.7vw, 0.82rem);
     font-weight: 500;
     color: var(--focus);
     letter-spacing: 0.07em;
@@ -2004,12 +1968,14 @@
   .popup-body {
     font-family: var(--font);
     font-size: 0.8rem;
+    font-size: clamp(0.8rem, 0.85vw, 0.95rem);
     font-weight: 400;
     color: #888888;
     text-align: left;
-    line-height: 1.65;
+    line-height: 1.7;
     overflow-y: auto;
     padding: 12px 16px 10px 16px;
+    padding: clamp(12px, 1.4vw, 16px) clamp(16px, 2.1vw, 24px) clamp(10px, 1vw, 12px) clamp(16px, 2.1vw, 24px);
     flex: 1;
     min-height: 0;
   }
@@ -2049,18 +2015,23 @@
     border: 1px solid rgba(255,255,255,0.07);
     border-radius: 7px;
     padding: 8px 11px;
+    padding: clamp(8px, 0.9vw, 11px) clamp(11px, 1.1vw, 14px);
     margin-bottom: 7px;
+    margin-bottom: clamp(7px, 0.7vw, 9px);
   }
   .popup-card-label {
     font-size: 0.6rem;
+    font-size: clamp(0.6rem, 0.6vw, 0.72rem);
     font-weight: 700;
     color: #444;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     margin-bottom: 3px;
+    margin-bottom: clamp(3px, 0.3vw, 4px);
   }
   .popup-card-value {
     font-size: 0.8rem;
+    font-size: clamp(0.8rem, 0.85vw, 0.95rem) !important;
     font-weight: 600;
     color: #ccc;
   }
@@ -2069,8 +2040,11 @@
     background: rgba(0,230,118,0.08);
     border: 1px solid rgba(0,230,118,0.2);
     border-radius: 5px;
+    border-radius: clamp(5px, 0.5vw, 6px);
     padding: 2px 7px;
+    padding: clamp(2px, 0.3vw, 3px) clamp(7px, 0.9vw, 10px);
     font-size: 0.65rem;
+    font-size: clamp(0.65rem, 0.7vw, 0.76rem);
     font-weight: 700;
     color: var(--focus);
     letter-spacing: 0.05em;
@@ -2079,6 +2053,7 @@
 
   .popup-footer-bar {
     padding: 8px 16px 10px 16px;
+    padding: clamp(8px, 1.1vw, 12px) clamp(16px, 2.2vw, 24px) clamp(10px, 1.3vw, 14px) clamp(16px, 2.2vw, 24px);
     border-top: 1px solid rgba(255,255,255,0.05);
     display: flex;
     align-items: center;
@@ -2089,14 +2064,18 @@
 
   .popup-close-btn {
     padding: 8px 32px;
+    padding: clamp(8px, 1vw, 11px) clamp(26px, 3.4vw, 38px);
     background: rgba(0, 230, 118, 0.07);
     border: 1.5px solid rgba(0,230,118,0.4);
     border-radius: 24px;
+    border-radius: clamp(24px, 2.5vw, 30px);
     color: var(--focus);
     font-family: var(--font);
     font-size: 0.8rem;
+    font-size: clamp(0.76rem, 0.85vw, 0.88rem);
     font-weight: 700;
     letter-spacing: 0.07em;
+    letter-spacing: clamp(0.07em, 0.08em, 0.1em);
     cursor: pointer;
     outline: none;
     transition: all 0.18s ease;
