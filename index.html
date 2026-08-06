@@ -4085,9 +4085,40 @@ function exitRealFullscreen() {
   if (document.fullscreenElement || document.webkitFullscreenElement)
     document.exitFullscreen().catch(function() {});
 }
+/* BUGFIX: pressing the literal Escape key -- what a keyboard/some TV
+   browsers' Back maps to -- is treated by the browser itself as a
+   privileged "exit fullscreen now" action. preventDefault()/
+   stopPropagation() in our keydown handler cannot cancel it, so on the
+   *same* keypress that our handler used to just close one inner layer
+   (a popup, the offline card, the quality panel, the channel/favs
+   overlay, the controls bar), the browser was independently exiting
+   real Fullscreen too -- which fires fullscreenchange below and used to
+   unconditionally closePlayer(), tearing down the whole player instead of
+   stepping back one level like every other panel in the app.
+   By the time fullscreenchange fires, our keydown handler has already run
+   and flipped popupOpen/offlineCardOpen/etc. back to false, so checking
+   *current* state here can't tell "we just closed an inner layer" apart
+   from "nothing was open". Each inner-layer Back branch below instead
+   calls _markStayInPlayer() the instant it fires, and this flag (not
+   live state) is what onFullscreenChange checks. */
+let _stayInPlayerOnFsExit  = false;
+let _stayInPlayerFlagTimer = null;
+function _markStayInPlayer() {
+  _stayInPlayerOnFsExit = true;
+  clearTimeout(_stayInPlayerFlagTimer);
+  _stayInPlayerFlagTimer = setTimeout(function() { _stayInPlayerOnFsExit = false; }, 500);
+}
 function onFullscreenChange() {
   if (isAppMode()) return;
-  if (!document.fullscreenElement && !document.webkitFullscreenElement && playerOpen) closePlayer();
+  if (!document.fullscreenElement && !document.webkitFullscreenElement && playerOpen) {
+    if (_stayInPlayerOnFsExit) {
+      _stayInPlayerOnFsExit = false;
+      clearTimeout(_stayInPlayerFlagTimer);
+      enterRealFullscreen();
+      return;
+    }
+    closePlayer();
+  }
 }
 document.addEventListener('fullscreenchange', onFullscreenChange);
 document.addEventListener('webkitfullscreenchange', onFullscreenChange);
@@ -4758,7 +4789,7 @@ window.addEventListener('keydown', function(e) {
 
   if (offlineCardOpen) {
     e.preventDefault(); e.stopImmediatePropagation();
-    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') hideOfflineCard();
+    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { _markStayInPlayer(); hideOfflineCard(); }
     else if (key === 'ArrowRight' || key === 'Right') setOfflineFocus(1);
     else if (key === 'ArrowLeft' || key === 'Left') setOfflineFocus(0);
     else if (ENTER_KEYS.has(code) || key === 'Enter') [offlineFixBtn, offlineContactBtn][offlineFocusIdx].click();
@@ -4778,7 +4809,7 @@ window.addEventListener('keydown', function(e) {
 
   if (popupOpen) {
     e.stopImmediatePropagation();
-    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { e.preventDefault(); closePopup(); }
+    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { e.preventDefault(); _markStayInPlayer(); closePopup(); }
     else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); closePopup(); }
     else if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); popupBody.scrollBy({ top: 80, behavior: 'smooth' }); }
     else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); popupBody.scrollBy({ top: -80, behavior: 'smooth' }); }
@@ -4789,13 +4820,16 @@ window.addEventListener('keydown', function(e) {
     if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') {
       e.preventDefault();
       if (qualityPanelOpen) {
+        _markStayInPlayer();
         hideQualityPanel();
         playerUiMode = 'controls';
         qualityBtn.focus();
         resetControlTimer();
       } else if (playerUiMode === 'overlay' || playerUiMode === 'favs') {
+        _markStayInPlayer();
         hideAllPlayerPanels();
       } else if (playerUiMode === 'controls') {
+        _markStayInPlayer();
         hideAllPlayerPanels();
       } else {
         history.back();
