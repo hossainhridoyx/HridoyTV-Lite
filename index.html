@@ -4750,6 +4750,31 @@ window.addEventListener('keydown', function(e) {
   const key  = e.key;
   const code = e.keyCode;
 
+  /* BUGFIX (TV remote Back leaves a popup stuck open): "How to fix?" /
+     "Contact us" can be opened from ON TOP of the offline card or the
+     state-error card (see the openPopup('streamFix'/'contact') calls
+     below), so popupOpen can be true at the same time as offlineCardOpen
+     or stateErrorOpen. This check used to run AFTER those two, so a TV
+     remote's physical Back key (delivered here as a keydown with codes
+     like 461/10009 on webOS/Tizen — those platforms do not route the
+     hardware Back key through popstate/history the way Android does) fell
+     into the offlineCardOpen/stateErrorOpen branch first and closed the
+     card *underneath*, while leaving the popup on top still open/active.
+     Since mobile users dismiss popups by tapping the visible close button
+     (which calls closePopup() directly, bypassing this whole keydown
+     chain), the bug was only ever reachable via a TV remote's Back key —
+     which is exactly why it only showed up on TV. The topmost layer must
+     always be closed first, so this check now runs before every other
+     open-panel check in this handler. */
+  if (popupOpen) {
+    e.stopImmediatePropagation();
+    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { e.preventDefault(); closePopup(); }
+    else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); closePopup(); }
+    else if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); popupBody.scrollBy({ top: 80, behavior: 'smooth' }); }
+    else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); popupBody.scrollBy({ top: -80, behavior: 'smooth' }); }
+    return;
+  }
+
   if (dlNoticeOpen) {
     e.preventDefault(); e.stopImmediatePropagation();
     if (key === 'ArrowLeft' || key === 'Left') _dlDownload.focus();
@@ -4779,15 +4804,6 @@ window.addEventListener('keydown', function(e) {
       if (stateBtnFocusIdx === 1) openPopup('contact');
       else retryLoadPlaylist();
     }
-    return;
-  }
-
-  if (popupOpen) {
-    e.stopImmediatePropagation();
-    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { e.preventDefault(); closePopup(); }
-    else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); closePopup(); }
-    else if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); popupBody.scrollBy({ top: 80, behavior: 'smooth' }); }
-    else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); popupBody.scrollBy({ top: -80, behavior: 'smooth' }); }
     return;
   }
 
