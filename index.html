@@ -176,10 +176,6 @@
     will-change: transform;
     animation: navTicker 28s linear infinite;
   }
-  /* PERF FIX #5: the ticker keeps scrolling even when the navbar is fully
-     covered by the fullscreen player or the tab is hidden. JS toggles this
-     class in those cases so the animation actually stops instead of just
-     being invisible. */
   .nav-ticker.ticker-paused {
     animation-play-state: paused;
   }
@@ -353,9 +349,6 @@
     border-color: var(--focus);
     color: #ffffff;
   }
-  /* REMOTE-NAV FIX: keyboard/remote focus highlight for the "Add Favs" row so
-     it is clearly reachable when navigating up from the top of the category
-     list, matching the .cat-item.kbfocus treatment used below it. */
   .fav-add-item.kbfocus {
     background: rgba(0, 230, 118, 0.22);
     border-color: #ffffff;
@@ -365,7 +358,6 @@
   }
   .fav-notice {
     position: fixed;
-    /* Keep the confirmation clear of the left-side Favs controls. */
     left: calc(50% + 110px);
     bottom: 72px;
     z-index: 1000;
@@ -516,14 +508,6 @@
     scroll-padding-top: 8px;
     scroll-padding-bottom: 40px;
     overscroll-behavior-y: contain;
-    /* REMOTE-NAV PERF FIX #10: this was `scroll-behavior: smooth`. The grid/
-       sidebar navigation JS calls `scrollIntoView({ behavior: 'auto' })` on
-       every remote keypress, but per spec `behavior: 'auto'` defers to this
-       CSS property -- so every single card/category focus move was still
-       silently doing an animated (~300ms+) smooth scroll on a weak TV CPU.
-       Fast remote button repeats piled up behind that animation, which is
-       exactly the "stuck/laggy" navigation feeling. Setting this to `auto`
-       makes focus moves jump instantly, in sync with each button press. */
     scroll-behavior: auto;
     background: transparent;
   }
@@ -537,25 +521,8 @@
     row-gap: 14px;
     width: 100%;
     align-content: start;
-    /* Positioned so .focus-ring (see below) can be placed absolutely
-       inside it and move with the grid when it scrolls. */
     position: relative;
     padding-bottom: calc(60px + env(safe-area-inset-bottom, 16px));
-    /* REMOTE-NAV PERF FIX #15: `card.scrollIntoView()` (called on every
-       Up/Down/Left/Right press) forces the browser to flush layout
-       synchronously before it can read the card's position. Without a
-       layout containment boundary here, that forced flush has to consider
-       the ENTIRE page's layout tree -- header, ticker, sidebar included --
-       not just this grid, even though nothing outside the grid actually
-       changed. That's extra synchronous main-thread work on every single
-       keypress, which is exactly what was still showing up as the header
-       ticker hitching and the highlight landing a beat late while moving
-       from card to card. `contain: layout style` tells the browser this
-       grid's internal layout can never affect anything outside it, so a
-       forced layout flush triggered by scrollIntoView only has to redo work
-       inside the grid, leaving the ticker/header layout alone.  (Paint
-       containment is deliberately not used here so the focused card's glow
-       is never visually clipped.) */
     contain: layout style;
   }
 
@@ -568,22 +535,11 @@
     text-align: center;
     cursor: pointer;
     outline: none;
-    /* PERF FIX #8 / REMOTE-NAV PERF FIX #16: `will-change` and `transform`
-       are intentionally NOT part of keyboard/remote focus styling anymore --
-       focus is now shown by moving a single separate `.focus-ring` element
-       (see that rule below) instead of scaling/glowing the card itself.
-       This transition only still matters for the mouse-hover state
-       (`.card:hover` below), which is naturally rate-limited by human mouse
-       movement and never fires anywhere near remote auto-repeat speed. */
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
     position: relative;
     z-index: 1;
   }
 
-  /* PERF FIX #3: conic-gradient spinning border (tv-border-spin) removed —
-     it forced a full GPU repaint every frame on every hovered/focused card,
-     which is the single heaviest visual cost on a weak TV GPU. Replaced with
-     a static accent border + one non-animated glow (transition only). */
   body:not(.kb-mode) .card:hover {
     border: 2.5px solid var(--focus);
     background: #0f0f0f;
@@ -592,37 +548,6 @@
     z-index: 5;
   }
 
-  /*
-   * REMOTE-NAV PERF FIX #16 (final root cause): every earlier fix above
-   * (caching, RAF coalescing, contain:layout, shorter transitions) reduced
-   * how much work each keypress does, but every card that ever received
-   * `.kbfocus` still went through: a border-WIDTH change (1.5px -> 2.5px,
-   * which is a layout-affecting property, not just paint), a `box-shadow`
-   * fade (box-shadow is rasterized/painted every frame it changes -- it can
-   * never be compositor-only), and a `transform: scale(1.1)` combined with
-   * `will-change: transform` that only existed WHILE `.kbfocus` was applied.
-   * That last part is the real hang: adding/removing `will-change` toggles
-   * GPU compositor-layer creation and destruction on every single card move.
-   * Layer creation/destruction is main-thread work that has to be
-   * committed to the compositor -- and that commit step is exactly what
-   * was blocking/delaying the *separate* header ticker's compositor
-   * animation from updating smoothly at the same time, which is why the
-   * ticker specifically stutters only while navigating cards.
-   *
-   * Fix: stop animating the card itself. A single dedicated `.focus-ring`
-   * element (see below) is created once, promoted to its own compositor
-   * layer once, and then only ever *moved* with `transform: translate3d()`
-   * to sit on top of whichever card is focused. Moving an already-promoted
-   * layer is a compositor-thread-only operation with zero paint and zero
-   * layout, so it costs the same whether there are 6 cards or 600, and it
-   * can never contend with the ticker's own compositor layer. `.kbfocus` on
-   * the card itself is now purely a text-color change (cheap, tiny-area
-   * paint, no layer implications).
-   */
-
-  /* Single floating highlight that represents keyboard/remote focus in the
-     grid. Created once in JS and moved (never re-created) between cards --
-     see REMOTE-NAV PERF FIX #16 above. */
   .focus-ring {
     position: absolute;
     top: 0;
@@ -642,9 +567,6 @@
   .focus-ring.visible { opacity: 1; }
   body.kb-mode .focus-ring { display: block; }
   body:not(.kb-mode) .focus-ring { display: none; }
-  /* Same intent as the old `body:not(.kb-mode) .card.kbfocus` reset: don't
-     leave the last keyboard-focused card's text/badge looking "focused"
-     once the user switches to mouse/pointer mode. */
   body:not(.kb-mode) .card.kbfocus .card-name { color: var(--text); }
   body:not(.kb-mode) .card.kbfocus .card-new-badge { background: #e11d48; color: #ffffff; box-shadow: 0 2px 8px rgba(225,29,72,0.7); }
 
@@ -683,9 +605,6 @@
     z-index: 8;
     pointer-events: none;
     box-shadow: 0 2px 8px rgba(225,29,72,0.7);
-    /* PERF FIX #5: pulse-new-tv animation removed — NEW badges were animating
-       forever (including while off-screen/scrolled out), costing continuous
-       compositing on TV hardware for a purely decorative effect. Now static. */
   }
   .card.kbfocus .card-new-badge {
     background: #ffffff;
@@ -701,14 +620,6 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* BUGFIX (TV "looks unstyled" bug): older Tizen/webOS/Android-TV browsers
-       do not understand clamp()/min(). When a browser can't parse a value it
-       drops that whole declaration instead of falling back — so every
-       clamp()/min() line below is preceded by a plain fixed-px fallback that
-       every browser understands. Capable browsers use the later clamp()/min()
-       line (last one wins in the cascade); TVs without support just keep the
-       plain value instead of silently getting no gap/padding/width/radius at
-       all (which is what made this card look completely unstyled on TV). */
     gap: 10px;
     gap: clamp(7px, 0.8vw, 18px);
     text-align: center;
@@ -851,13 +762,6 @@
     transform: translateZ(0);
     will-change: contents;
   }
-  /* BUGFIX: wrapper for everything in the player EXCEPT #popup-overlay, so
-     the popup-open dimming filter (see body.popup-open rule above) can
-     target this instead of #player-wrap and never dim the popup itself. */
-  #player-stage {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-  }
 
   .player-watermark {
     position: absolute;
@@ -939,20 +843,6 @@
     position: absolute;
     top: 50%;
     left: auto;
-    /* BUGFIX (TV "shows on the left" bug): many smart-TV browsers (older
-       Tizen/webOS/Android-TV WebViews) do not understand the CSS clamp()
-       function. When a browser can't parse a value, it drops that whole
-       declaration — so `right: clamp(...)` was simply ignored on those TVs,
-       `right` fell back to its default `auto`, and with `left` also `auto`
-       an absolutely-positioned element resolves to its static position,
-       which is the LEFT edge here. Fix: declare a plain fixed-px `right`
-       value FIRST as a fallback (every browser understands plain px), then
-       the clamp() version after it — capable browsers use the clamp()
-       line (it comes later in the cascade), TVs without clamp() support
-       just keep the plain px fallback instead of silently resetting to
-       `auto`/left. Same fallback-then-clamp pattern applied below to
-       gap/padding/font-size so the popup stays correctly sized (truly
-       responsive) even on those older TV browsers. */
     right: 32px;
     right: clamp(28px, 4vw, 76px);
     bottom: auto;
@@ -974,8 +864,6 @@
     line-height: 1.2;
     max-width: min(60vw, 420px);
     box-shadow: 0 12px 34px rgba(0, 0, 0, 0.58), 0 0 22px rgba(255, 107, 126, 0.18);
-    /* PERF FIX #4: backdrop-filter blur removed (GPU-heavy on TVs); background
-       opacity bumped up so the popup still reads as opaque without it. */
     z-index: 100021;
     opacity: 0;
     pointer-events: none;
@@ -997,8 +885,6 @@
     top: clamp(30px, 5.5vh, 62px); left: 50%;
     transform: translateX(-50%) translateY(-8px);
     max-width: min(86vw, 680px);
-    /* PERF FIX #4: backdrop-filter blur removed; background made near-opaque
-       so the pill still separates cleanly from the video underneath. */
     background: rgba(0, 0, 0, 0.92);
     border: none;
     box-shadow: 0 8px 24px rgba(0,0,0,0.36);
@@ -1044,22 +930,25 @@
     transform: translate(-50%, -50%) scale(0.88);
     background: rgba(12, 14, 18, 0.96);
     border: 1.5px solid rgba(255, 255, 255, 0.13);
+    border-radius: 16px;
     border-radius: clamp(14px, 1.4vw, 24px);
+    padding: 24px 28px;
     padding: clamp(22px, 2.6vw, 50px) clamp(24px, 3.2vw, 62px);
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 14px;
     gap: clamp(14px, 1.3vw, 24px);
     z-index: 100004;
     opacity: 0;
     pointer-events: none;
     text-align: center;
     box-shadow: 0 24px 70px rgba(0,0,0,0.7);
-    /* PERF FIX #4: backdrop-filter blur removed; the card background is already
-       near-solid (0.96 alpha) so it stays fully readable without it. */
     will-change: opacity, transform;
     transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    min-width: 280px;
     min-width: clamp(280px, 28vw, 540px);
+    max-width: 480px;
     max-width: min(clamp(340px, 40vw, 640px), 92vw);
   }
   #offline-card.visible {
@@ -1068,6 +957,7 @@
     transform: translate(-50%, -50%) scale(1);
   }
   .offline-icon {
+    font-size: 2rem;
     font-size: clamp(1.7rem, 3.2vw, 4.2rem);
     line-height: 1;
     filter: grayscale(0.3);
@@ -1079,16 +969,20 @@
   }
   .offline-title {
     font-family: var(--font);
+    font-size: 1.3rem;
     font-size: clamp(1.05rem, 1.8vw, 2rem);
     font-weight: 800;
     color: #fff;
     letter-spacing: 0.04em;
     line-height: 1.25;
+    margin-top: 3px;
     margin-top: clamp(1px, 0.25vw, 5px);
+    margin-bottom: 6px;
     margin-bottom: clamp(3px, 0.55vw, 9px);
     text-shadow: 0 2px 14px rgba(255,255,255,0.12);
   }
   .offline-status-icon {
+    font-size: 2.5rem;
     font-size: clamp(2rem, 3.7vw, 4.5rem);
     line-height: 1;
     filter: drop-shadow(0 0 14px rgba(0,230,118,0.25));
@@ -1146,8 +1040,6 @@
     position: absolute;
     bottom: 42%; left: 50%;
     transform: translateX(-50%);
-    /* PERF FIX #4: backdrop-filter blur removed; bumped background opacity to
-       stay legible over any video frame without the blur cost. */
     background: rgba(5,12,9,0.95);
     border: 1px solid rgba(0,230,118,0.38);
     color: #f4fff7;
@@ -1361,8 +1253,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    /* PERF FIX #4: backdrop-filter blur removed; panel background is already
-       near-opaque (0.98 alpha) so removing it changes nothing visually. */
   }
   .channel-overlay.active {
     opacity: 1;
@@ -1384,8 +1274,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    /* PERF FIX #4: backdrop-filter blur removed; same reasoning as
-       .channel-overlay above — background is already near-opaque. */
   }
   .favs-overlay.active {
     opacity: 1;
@@ -1420,9 +1308,6 @@
     line-height: 1;
     flex-shrink: 0;
     filter: drop-shadow(0 0 8px rgba(0,230,118,0.6));
-    /* PERF FIX #5: this icon lives inside .channel-overlay/.favs-overlay, which
-       stay in the DOM (just opacity:0) even when closed, so the animation used
-       to run forever off-screen. Scoped to only run while the panel is .active. */
   }
   .channel-overlay.active .overlay-title-icon,
   .favs-overlay.active .overlay-title-icon {
@@ -1674,8 +1559,6 @@
     visibility: visible;
     position: relative;
     z-index: 3;
-    /* PERF FIX #5: static badge instead of an always-running pulse (same
-       reasoning as .card-new-badge above). */
     flex-shrink: 0;
     align-self: center;
   }
@@ -1688,31 +1571,13 @@
   #main-ui {
     transition: filter 0.28s ease;
     filter: none;
-    /* PERF FIX #8: will-change removed — #main-ui wraps the ENTIRE sidebar +
-       channel grid subtree, so promoting it to a compositor layer promotes
-       that whole subtree (every card inside it) into GPU memory too. The
-       brightness dim on popup-open is cheap enough without it. */
   }
-  /* PERF FIX #4: the blur() component of these two filters was the same kind
-     of GPU-heavy blur as backdrop-filter (a full-screen blur every time a
-     popup opens). Kept only the brightness dim, which is cheap. */
   body.popup-open #main-ui {
     filter: brightness(0.5);
     pointer-events: none;
   }
-  /* BUGFIX: dimming used to target #player-wrap itself, but #popup-overlay is
-     moved *inside* #player-wrap while the player is open (see openPlayer's
-     BUGFIX comment). A CSS filter applied to a parent dims the parent's
-     entire rendered output as one flattened layer, including all descendants
-     — so the "How to fix?" / "Contact Us" popup was getting dimmed along
-     with the video behind it (the popup looked like it opened "in the
-     dark"), instead of standing out brightly against a dimmed background
-     like it does everywhere else in the app. Fix: dim only #player-stage —
-     the wrapper that holds the video/controls/overlays — and keep
-     #popup-overlay as a sibling of #player-stage (still inside #player-wrap,
-     so Fullscreen API compositing keeps working) so it is never inside the
-     dimmed subtree. */
-  body.popup-open #player-stage {
+  /* Bug 2 fix: filter only the children of #player-wrap, excluding the popup-overlay itself */
+  body.popup-open #player-wrap > *:not(#popup-overlay) {
     filter: brightness(0.5);
   }
 
@@ -1721,8 +1586,6 @@
     display: none;
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    /* PERF FIX #4: backdrop-filter blur removed; darker solid background used
-       instead so the dialog still stands out from the page behind it. */
     background: rgba(0,0,0,0.94);
     z-index: 300000;
     align-items: center;
@@ -1851,18 +1714,7 @@
     z-index: 200000;
     align-items: center;
     justify-content: center;
-    /* BUGFIX: previously the roomy sizing below only applied inside
-       "@media (min-width: 800px/1200px)" blocks. Some TV WebViews report a
-       CSS viewport width that never crosses those thresholds (even though the
-       physical screen is large), so the popup was permanently stuck on the
-       smallest/"mobile" sizing tier -- which is what looked "compact" on TV
-       while a normal desktop browser window (always > 1200px) always got the
-       roomy tier. Fluid clamp() sizing below scales continuously with the
-       real viewport instead of jumping at a fixed breakpoint, so it looks
-       right at any width. A static fallback is declared first for very old
-       engines that don't understand clamp(). */
     padding: 28px 20px;
-    padding: clamp(24px, 5vw, 90px) clamp(20px, 5vw, 90px);
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
@@ -1879,12 +1731,9 @@
     background: linear-gradient(160deg, #111111 0%, #0a0a0a 100%);
     border: 1px solid rgba(0, 230, 118, 0.22);
     border-radius: 16px;
-    border-radius: clamp(16px, 1.6vw, 22px);
     padding: 0;
     width: min(340px, 92vw);
-    width: min(clamp(340px, 34vw, 560px), 92vw);
     max-height: min(420px, calc(100vh - 80px));
-    max-height: min(clamp(420px, 58vh, 620px), calc(100vh - 80px));
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -1903,18 +1752,62 @@
     to   { opacity: 1; transform: scale(1)    translateY(0);    }
   }
 
-  /* BUGFIX: element-level padding/sizes used to only step up at these two
-     breakpoints (see note on .popup-overlay above). We still bump the
-     border-width and enable the thin scrollbar here since those aren't worth
-     making fluid, but font sizes/padding/gaps now live in the base rules
-     below as clamp() values so they scale correctly regardless of whether a
-     TV's reported viewport happens to cross 800px/1200px. */
+  @media (min-width: 800px) {
+    .popup-overlay { padding: 6% 6%; }
+    .popup-box {
+      width: 460px;
+      max-width: calc(100vw - 120px);
+      max-height: 58vh;
+      border-radius: 18px;
+    }
+    .popup-header   { padding: 14px 18px 12px 18px; gap: 10px; }
+    .popup-icon     { font-size: 1.6rem; }
+    .popup-title    { font-size: 1.05rem; }
+    .popup-title-sub{ font-size: 0.76rem; margin-top: 2px; }
+    .popup-close-btn{ font-size: 0.76rem; padding: 7px 26px; }
+    .popup-body     { font-size: 0.88rem; line-height: 1.62; padding: 12px 18px 10px 18px; }
+    .popup-card     { padding: 8px 12px; margin-bottom: 7px; border-radius: 8px; }
+    .popup-card-label { font-size: 0.7rem; margin-bottom: 3px; }
+    .popup-card-value { font-size: 0.88rem !important; }
+    .popup-tag      { font-size: 0.72rem; padding: 2px 8px; }
+  }
+
   @media (min-width: 1200px) {
-    .popup-box { border-width: 1.5px; }
-    .popup-close-btn.kbfocus,
-    .popup-close-btn:focus {
+    .popup-overlay { padding: 7% 7%; }
+    .popup-box {
+      width: 560px;
+      max-width: calc(100vw - 200px);
+      max-height: 60vh;
+      border-radius: 22px;
+      border-width: 1.5px;
+    }
+    .popup-header   { padding: 18px 24px 14px 24px; gap: 14px; }
+    .popup-icon     { font-size: 2rem; }
+    .popup-title    { font-size: 1.22rem; }
+    .popup-title-sub{ font-size: 0.82rem; margin-top: 3px; }
+    .popup-close-btn{
+      font-size: 0.88rem;
+      padding: 11px 38px;
+      border-width: 2px;
+      border-radius: 30px;
+      letter-spacing: 0.1em;
+    }
+    .popup-close-btn:focus,
+    .popup-close-btn.kbfocus {
+      background: var(--focus);
+      color: #000;
+      box-shadow: 0 0 28px rgba(0,230,118,0.55);
       transform: scale(1.05);
     }
+    .popup-footer-bar { padding: 12px 24px 14px 24px; }
+    .popup-body     { font-size: 0.95rem; line-height: 1.7; padding: 16px 24px 12px 24px; }
+    .popup-card     { padding: 11px 14px; margin-bottom: 9px; border-radius: 10px; }
+    .popup-card-label { font-size: 0.72rem; margin-bottom: 4px; }
+    .popup-card-value { font-size: 0.95rem !important; }
+    .popup-tag      { font-size: 0.76rem; padding: 3px 10px; border-radius: 6px; }
+  }
+
+  @media (min-width: 1200px) {
     .popup-body {
       scrollbar-width: thin;
       scrollbar-color: rgba(0,230,118,0.3) transparent;
@@ -1925,9 +1818,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    gap: clamp(10px, 1vw, 14px);
     padding: 12px 16px 10px 16px;
-    padding: clamp(12px, 1.6vw, 18px) clamp(16px, 2vw, 24px) clamp(10px, 1.2vw, 14px) clamp(16px, 2vw, 24px);
     border-bottom: 1px solid rgba(255,255,255,0.05);
     flex-shrink: 0;
     background: rgba(0,230,118,0.03);
@@ -1935,7 +1826,6 @@
 
   .popup-icon {
     font-size: 1.4rem;
-    font-size: clamp(1.4rem, 1.6vw, 2rem);
     line-height: 1;
     flex-shrink: 0;
   }
@@ -1943,7 +1833,6 @@
   .popup-title {
     font-family: var(--font);
     font-size: 0.9rem;
-    font-size: clamp(0.9rem, 1vw, 1.22rem);
     font-weight: 700;
     color: #ffffff;
     letter-spacing: 0.02em;
@@ -1953,7 +1842,6 @@
   }
   .popup-title-sub {
     font-size: 0.63rem;
-    font-size: clamp(0.63rem, 0.7vw, 0.82rem);
     font-weight: 500;
     color: var(--focus);
     letter-spacing: 0.07em;
@@ -1968,14 +1856,12 @@
   .popup-body {
     font-family: var(--font);
     font-size: 0.8rem;
-    font-size: clamp(0.8rem, 0.85vw, 0.95rem);
     font-weight: 400;
     color: #888888;
     text-align: left;
-    line-height: 1.7;
+    line-height: 1.65;
     overflow-y: auto;
     padding: 12px 16px 10px 16px;
-    padding: clamp(12px, 1.4vw, 16px) clamp(16px, 2.1vw, 24px) clamp(10px, 1vw, 12px) clamp(16px, 2.1vw, 24px);
     flex: 1;
     min-height: 0;
   }
@@ -1983,7 +1869,6 @@
   .popup-body strong { color: #cccccc; font-weight: 600; }
   .popup-body .ht-green { color: var(--focus); font-weight: 700; }
 
-  /* Clean, document-style content for informational popups. */
   .popup-article { color: #a5a5a5; }
   .popup-article p { margin: 0 0 13px; }
   .popup-article h3 {
@@ -2015,23 +1900,18 @@
     border: 1px solid rgba(255,255,255,0.07);
     border-radius: 7px;
     padding: 8px 11px;
-    padding: clamp(8px, 0.9vw, 11px) clamp(11px, 1.1vw, 14px);
     margin-bottom: 7px;
-    margin-bottom: clamp(7px, 0.7vw, 9px);
   }
   .popup-card-label {
     font-size: 0.6rem;
-    font-size: clamp(0.6rem, 0.6vw, 0.72rem);
     font-weight: 700;
     color: #444;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     margin-bottom: 3px;
-    margin-bottom: clamp(3px, 0.3vw, 4px);
   }
   .popup-card-value {
     font-size: 0.8rem;
-    font-size: clamp(0.8rem, 0.85vw, 0.95rem) !important;
     font-weight: 600;
     color: #ccc;
   }
@@ -2040,11 +1920,8 @@
     background: rgba(0,230,118,0.08);
     border: 1px solid rgba(0,230,118,0.2);
     border-radius: 5px;
-    border-radius: clamp(5px, 0.5vw, 6px);
     padding: 2px 7px;
-    padding: clamp(2px, 0.3vw, 3px) clamp(7px, 0.9vw, 10px);
     font-size: 0.65rem;
-    font-size: clamp(0.65rem, 0.7vw, 0.76rem);
     font-weight: 700;
     color: var(--focus);
     letter-spacing: 0.05em;
@@ -2053,7 +1930,6 @@
 
   .popup-footer-bar {
     padding: 8px 16px 10px 16px;
-    padding: clamp(8px, 1.1vw, 12px) clamp(16px, 2.2vw, 24px) clamp(10px, 1.3vw, 14px) clamp(16px, 2.2vw, 24px);
     border-top: 1px solid rgba(255,255,255,0.05);
     display: flex;
     align-items: center;
@@ -2064,18 +1940,14 @@
 
   .popup-close-btn {
     padding: 8px 32px;
-    padding: clamp(8px, 1vw, 11px) clamp(26px, 3.4vw, 38px);
     background: rgba(0, 230, 118, 0.07);
     border: 1.5px solid rgba(0,230,118,0.4);
     border-radius: 24px;
-    border-radius: clamp(24px, 2.5vw, 30px);
     color: var(--focus);
     font-family: var(--font);
     font-size: 0.8rem;
-    font-size: clamp(0.76rem, 0.85vw, 0.88rem);
     font-weight: 700;
     letter-spacing: 0.07em;
-    letter-spacing: clamp(0.07em, 0.08em, 0.1em);
     cursor: pointer;
     outline: none;
     transition: all 0.18s ease;
@@ -2669,7 +2541,6 @@
 
 <!-- ── Player ── -->
 <div id="player-wrap">
- <div id="player-stage">
   <video id="vid" playsinline loop crossorigin="anonymous" referrerpolicy="no-referrer"></video>
   <img src="https://i.postimg.cc/8k7t1Zhd/hridoytv-logo-h.png" class="player-watermark" alt="HridoyTV">
   <div id="osd">
@@ -2729,7 +2600,6 @@
     </div>
     <div class="overlay-grid" id="favs-grid"></div>
   </div>
- </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
@@ -2828,11 +2698,6 @@ let favsMenuOpen = false;
 let favNoticeTimer = null;
 let playerOpen       = false;
 let hls              = null;
-/* PERF FIX #2: single switch to compare enableWorker true vs false on the
-   actual TV. Flip this to `true` and reload to A/B test — on many low-end
-   Smart TVs the worker's postMessage/structured-clone overhead per segment
-   costs more than the main thread benefit, but this varies by device, so it
-   is left as an easy toggle rather than a hardcoded guess. */
 const HLS_ENABLE_WORKER = false;
 let osdTimer         = null;
 let _bufferTimer     = null;
@@ -2842,18 +2707,8 @@ let _playbackPausedByUser = false;
 let activePane        = 'sidebar';
 let catFocusIdx       = 0;
 let catActiveIdx      = 0;
-/* REMOTE-NAV FIX: tracks whether keyboard/remote focus inside the sidebar is
-   currently sitting on the "Add Favs" row above the category list (instead
-   of on one of the .cat-item buttons). Needed because #add-favs-btn lives
-   outside #cat-list, so it was never part of getCatItems() and pressing Up
-   from the top category (Favs) had nowhere to go. */
 let sidebarOnAddFavs  = false;
 let gridFocusIdx      = 0;
-/* REMOTE-NAV PERF FIX #16: single reusable floating highlight element for
-   grid keyboard/remote focus -- see the `.focus-ring` CSS comment above for
-   why this replaced animating the card itself. Recreated once per
-   renderGrid() call (since grid.innerHTML is cleared then) and just moved
-   with transform afterwards. */
 let _focusRingEl      = null;
 let overlayFocusIdx   = 0;
 let controlFocusIdx   = 0;
@@ -2874,7 +2729,6 @@ let overlayFocusPane       = 'list';
 let _overlayRenderGen      = 0;
 let _overlayCatSwitchTimer = null;
 
-/* ── Quality Panel State ── */
 let qualityPanelOpen  = false;
 let qualityFocusIdx   = 0;
 let qualityLevels     = [];
@@ -3239,33 +3093,9 @@ function getGridCols() {
 function getOverlayCols() { return 1; }
 window.addEventListener('resize', function() {
   _gridColsCache = 0; _overlayColsCache = 0;
-  // Card positions/sizes change on resize -- snap the floating focus ring
-  // to the (possibly moved) currently-focused card so it doesn't stay
-  // parked at its old coordinates.
   if (activePane === 'grid' && _focusedCardEl) requestAnimationFrame(function() { positionFocusRing(_focusedCardEl); });
 }, { passive: true });
 
-/*
- * REMOTE-NAV PERF FIX: `getCards()` used to run `document.querySelectorAll('.card')`
- * on every single remote keypress, and `clearCardKbFocus()` used to run another
- * full `document.querySelectorAll('.card.kbfocus')` scan on every keypress too.
- * With a few hundred cards in the grid, that is two full DOM scans per keypress
- * before any visible highlight moves -- on a weak TV CPU those scans (plus the
- * forced layout from scrollIntoView) can't keep up with fast remote button
- * repeats, so presses pile up and navigation feels stuck/laggy/hangy.
- *
- * Fix: cache the card list once per render (only rebuilt when the grid's DOM
- * actually changes) and track the currently-focused card element directly so
- * clearing/moving focus is O(1) instead of O(n). On top of that, rapid
- * directional key repeats are coalesced onto requestAnimationFrame -- the
- * logical focus index updates instantly on every keypress (so math like
- * "gridFocusIdx + 1" is always correct immediately), but the actual DOM
- * class + scrollIntoView work is applied at most once per animation frame,
- * always jumping straight to the latest requested card. That means a burst
- * of remote button presses never queues up a chain of stale re-renders --
- * the UI always catches up to exactly where the user currently is, in sync
- * with the very next button press.
- */
 let _gridCardsCache = null;
 function invalidateGridCardsCache() { _gridCardsCache = null; }
 
@@ -3286,27 +3116,12 @@ function clearCardKbFocus() {
   document.querySelectorAll('.card.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); });
 }
 
-/*
- * REMOTE-NAV PERF FIX #16: moves the single `.focus-ring` element (created
- * once per renderGrid() in `ensureFocusRing()`) to sit exactly on top of
- * `card`, using `card`'s already-computed offset position within `.grid`
- * (its positioned ancestor). This is a pure `transform`/size write on one
- * persistently-promoted compositor layer -- no class churn, no will-change
- * add/remove, no border/box-shadow repaint on the card itself -- so it
- * costs the same tiny amount of work no matter how large the channel list
- * is, and it can no longer contend with the header ticker's own compositor
- * layer for a commit.
- */
 function positionFocusRing(card) {
   if (!_focusRingEl) return;
   var w = card.offsetWidth, h = card.offsetHeight;
   var x = card.offsetLeft, y = card.offsetTop;
   _focusRingEl.style.width  = w + 'px';
   _focusRingEl.style.height = h + 'px';
-  // Same translate3d + scale(1.1) combo as the CSS default below, so the
-  // highlighted card still visually "pops" the way the old per-card
-  // transform did -- just applied to this one persistently-promoted layer
-  // instead of the card itself.
   _focusRingEl.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0) scale(1.1)';
   _focusRingEl.classList.add('visible');
 }
@@ -3319,29 +3134,9 @@ function clearOverlayKbFocus() {
   });
   _focusedOverlayEl = null;
 }
-/*
- * REMOTE-NAV PERF FIX #11: setCatFocus()/setInfoFocus() run on every single
- * Up/Down keypress while browsing the sidebar categories or the info list --
- * this is the very first screen every session lands on, and it stays live
- * the whole time the grid is being browsed too (Left from the grid drops
- * back into it). clearCatKbFocus()/clearInfoKbFocus() used to run a fresh
- * `document.querySelectorAll('...kbfocus')` scan EVERY time, and both were
- * called together on every keypress (each list clears the other, since focus
- * can move between them) -- so every single remote press did two full DOM
- * scans before anything visibly moved, on top of getCatItems()/getInfoItems()
- * doing their own uncached `document.querySelectorAll()` scan too. That is
- * exactly the same "two full scans per keypress" pattern that made the
- * channel grid feel stuck/laggy before it was fixed (see the REMOTE-NAV PERF
- * FIX note above getCards()) -- it just hadn't been applied here yet, which
- * is why navigation could still hang even after the grid itself was fixed.
- * Fixed the same way: track the one focused element directly so clearing is
- * O(1) instead of O(n).
- */
 let _focusedCatEl  = null;
 let _focusedInfoEl = null;
 function clearCatKbFocus() {
-  /* REMOTE-NAV FIX: also drop the "Add Favs" kbfocus highlight whenever
-     category-list focus is cleared, so the two never stay lit at once. */
   if (sidebarOnAddFavs) { addFavsBtn.classList.remove('kbfocus'); sidebarOnAddFavs = false; }
   if (_focusedCatEl) { _focusedCatEl.classList.remove('kbfocus'); _focusedCatEl = null; return; }
   document.querySelectorAll('.cat-item.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); });
@@ -3350,11 +3145,6 @@ function clearInfoKbFocus() {
   if (_focusedInfoEl) { _focusedInfoEl.classList.remove('kbfocus'); _focusedInfoEl = null; return; }
   document.querySelectorAll('.info-item.kbfocus').forEach(function(el) { el.classList.remove('kbfocus'); });
 }
-/* REMOTE-NAV FIX: gives keyboard/remote focus to the "Add Favs" row that
-   sits above the category list. Mirrors setCatFocus()'s bookkeeping
-   (clearing the other pane's focus, scrolling into view) so the rest of the
-   navigation code doesn't need to special-case it beyond checking
-   `sidebarOnAddFavs`. */
 function focusAddFavsBtn() {
   if (addFavsBtn.hidden) return false;
   clearInfoKbFocus();
@@ -3600,11 +3390,6 @@ function renderInfoList() {
     frag.appendChild(btn);
   });
   infoList.appendChild(frag);
-  /*
-   * Do not show a permanent focus highlight on the first item (Download
-   * HridoyTV) during initial render. Focus moves here only through keyboard
-   * navigation or when returning from one of its dialogs.
-   */
   if (!getCatItems().length && activePane === 'info') setInfoFocus(infoFocusIdx);
 }
 
@@ -3710,19 +3495,6 @@ function updateFavoriteMarker(channelName, isFavorite) {
   });
 }
 
-/*
- * PERF FIX #10: this used to build every single channel card for the active
- * category in one synchronous forEach + appendChild — for "All Channels" on
- * a list with a few hundred entries, that is a few hundred createElement +
- * addEventListener calls (three listeners each) all on the main thread
- * before the browser can paint anything. On a fast machine that is invisible;
- * on a weak TV CPU it is a multi-second freeze every time the user opens a
- * category, which is exactly the "navigating hangs the whole TV" complaint.
- * Now built in small chunks across animation frames (same pattern already
- * used for the in-player channel overlay), so the very first cards paint
- * almost immediately and the remaining ones stream in without blocking
- * keypresses, scrolling, or anything else on the page.
- */
 let _gridRenderToken = 0;
 
 function renderGrid() {
@@ -3730,9 +3502,6 @@ function renderGrid() {
   grid.innerHTML = '';
   invalidateGridCardsCache();
   _focusedCardEl = null;
-  /* grid.innerHTML above wipes out any previous .focus-ring node, so it is
-     recreated here (once per render, not once per keypress) and reused for
-     every focus move until the next renderGrid(). */
   _focusRingEl = document.createElement('div');
   _focusRingEl.className = 'focus-ring';
   grid.appendChild(_focusRingEl);
@@ -3757,20 +3526,6 @@ function renderGrid() {
     card.tabIndex = -1;
     const img = document.createElement('img');
     img.className = 'card-logo';
-    /* REMOTE-NAV PERF FIX #13 (corrected): an earlier pass switched this to
-       eager loading, believing per-frame chunking alone would keep image
-       fetch/decode load spread out. It doesn't -- chunking only staggers
-       when each <img> element is *created*, not the cost of the network
-       fetch + decode it kicks off. For a category with a few hundred
-       channels, eager-loading every logo means a few hundred concurrent
-       fetches + decodes are all in flight within the first second or two,
-       and on a weak TV SoC that decode/network contention is exactly what
-       stalls the main thread and makes every subsequent remote keypress feel
-       stuck -- not just the "first scroll into a fresh row" case the eager
-       change was trying to solve. Restored native lazy loading (same as the
-       in-player channel overlay's cards, which never had this bug) so only
-       logos actually near the viewport load, keeping concurrent decode work
-       low no matter how large the channel list is. */
     img.loading = 'lazy';
     img.decoding = 'async';
     img.src = ch.logo || DEFAULT_LOGO;
@@ -3800,7 +3555,7 @@ function renderGrid() {
   }
 
   function renderChunk() {
-    if (renderToken !== _gridRenderToken) return; // grid was re-rendered/cleared meanwhile
+    if (renderToken !== _gridRenderToken) return;
     const frag = document.createDocumentFragment();
     const end = Math.min(i + GRID_CHUNK, total);
     for (; i < end; i++) frag.appendChild(buildCard(filteredChannels[i], i));
@@ -3809,8 +3564,6 @@ function renderGrid() {
     if (i < total) {
       requestAnimationFrame(renderChunk);
     } else if (activePane === 'grid') {
-      // Re-applies the kbfocus highlight once every card actually exists;
-      // harmless no-op if nothing in the grid is focused yet.
       setGridFocus(gridFocusIdx);
     }
   }
@@ -3890,7 +3643,7 @@ function renderOverlayGrid(category, onComplete) {
   const total = filteredOverlayChannels.length;
 
   function renderChunk() {
-    if (_renderGen !== _overlayRenderGen) return; /* a newer render superseded this one; stop */
+    if (_renderGen !== _overlayRenderGen) return;
     const frag = document.createDocumentFragment();
     const end  = Math.min(i + CHUNK, total);
     for (; i < end; i++) {
@@ -3968,7 +3721,6 @@ function changePlayerChannel(direction) {
     : 0;
   const nextIndex = currentIndex + direction;
 
-  /* Stay at the beginning/end of the playlist rather than unexpectedly wrapping. */
   if (nextIndex < 0 || nextIndex >= channels.length) return;
 
   currentChannelIdx = nextIndex;
@@ -4032,16 +3784,6 @@ function setGridFocus(idx) {
   card.scrollIntoView({ block: 'nearest', behavior: 'auto' });
 }
 
-/*
- * Used for directional (Up/Down/Left/Right) grid navigation only. Updates
- * the logical `gridFocusIdx` immediately (so back-to-back keypresses always
- * compute from the latest position), but defers the actual highlight-move +
- * scrollIntoView DOM work to the next animation frame and collapses any
- * extra keypresses that land before that frame runs into a single update --
- * so a fast burst of remote button presses can never pile up a queue of
- * DOM work; it always renders exactly the latest requested card, right in
- * step with the buttons being pressed.
- */
 let _gridFocusRAF = null;
 function requestGridFocus(idx) {
   const cards = getCards();
@@ -4080,31 +3822,9 @@ function openPlayer(idx, streamIndex) {
   currentChannelIdx = idx;
   playerOpen        = true;
   playerWrap.style.display = 'block';
-  /* PERF FIX #9: the fullscreen player fully covers the sidebar + channel
-     grid, but that grid can hold hundreds of channel cards and was being
-     left in the DOM at `display: flex`, fully laid out and composited,
-     underneath the player the whole time. The browser still has to manage
-     layout/paint/compositing for all of that off-screen content, which
-     competes with the player's own decode/paint work for every remote-key
-     press and is the main reason navigating panels *inside* the player felt
-     like it could set the TV on fire. Hiding it outright removes that cost
-     entirely while the player is open. */
   mainUiEl.style.display = 'none';
-  // PERF FIX #5: the fullscreen player covers the navbar entirely, so its
-  // ticker text animation is running fully off-screen — pause it while
-  // the player is open.
   var navTickerEl = document.querySelector('.nav-ticker');
   if (navTickerEl) navTickerEl.classList.add('ticker-paused');
-  /* BUGFIX: #popup-overlay (About/Contact/"How to fix?"/etc.) lives outside
-     #player-wrap in the DOM. Once #player-wrap is put into the browser's
-     native Fullscreen mode below, only the fullscreen element's own subtree
-     is composited on top — anything outside it (like this popup) gets
-     rendered underneath/outside that layer with its positioning and
-     stacking context effectively broken, which is why it showed up looking
-     unstyled ("stream unavailable" -> "How to fix?" popup, etc). Moving the
-     popup node inside #player-wrap while the player is open makes it part
-     of the fullscreen subtree so its CSS (position, z-index, backdrop)
-     applies correctly again. It is moved back out in closePlayer(). */
   if (popupOverlay.parentElement !== playerWrap) playerWrap.appendChild(popupOverlay);
   if (!wasOpen) {
     enterRealFullscreen();
@@ -4141,30 +3861,26 @@ function updateOverlayPlayingCard() {
 
 function closePlayer() {
   playerOpen = false;
+
+  // Bug-3 fix: player বন্ধ হওয়ার সময় কোনো popup খোলা থাকলে সেটাও বন্ধ করো,
+  // নাহলে popup-overlay ভুলভাবে Home/Channel grid স্ক্রিনে থেকে যাবে।
+  if (popupOpen) {
+    popupOpen = false;
+    document.body.classList.remove('popup-open');
+    popupOverlay.classList.remove('active');
+    _returnToOfflineCard = false;
+  }
+
   playerWrap.style.display = 'none';
-  // PERF FIX #9: restore the sidebar + grid now that the player no longer
-  // covers it (see openPlayer's mainUiEl.style.display = 'none').
   mainUiEl.style.display = 'flex';
   hideLoading(); hideBufferBadge(); hideOfflineCard(); hideAllPlayerPanels(); hideQualityPanel();
   clearTimeout(_streamFallbackTimer);
-  /* PERF FIX #1: closing the player no longer destroys the Hls instance —
-     only stopLoad() to halt network/segment work. The instance is kept alive
-     so the next channel opened can reuse it via loadSource() instead of
-     spawning a brand new instance (and a brand new Web Worker) from scratch.
-     Full destroy only happens on fatal/unrecoverable errors or page unload
-     (see clearHls() and the pagehide/beforeunload listeners below). */
   if (hls) { try { hls.stopLoad(); } catch (_) {} }
   vid.pause();
   exitRealFullscreen(); setAppHeight();
-  /* BUGFIX (see openPlayer): move #popup-overlay back out of #player-wrap
-     now that we're leaving fullscreen, so it renders in normal document
-     flow again for the non-player (channel list) screens. */
   if (popupOverlay.parentElement === playerWrap) {
     playerWrap.parentElement.insertBefore(popupOverlay, playerWrap);
   }
-  // PERF FIX #5: navbar is visible again once the player closes — resume the
-  // ticker (unless the tab itself is hidden, which the visibilitychange
-  // handler owns).
   var navTickerEl = document.querySelector('.nav-ticker');
   if (navTickerEl && !document.hidden) navTickerEl.classList.remove('ticker-paused');
   if (activePane === 'grid') setGridFocus(gridFocusIdx);
@@ -4172,8 +3888,6 @@ function closePlayer() {
 }
 
 let _playId = 0;
-// Mutable "current channel" state read by the persistent Hls event handlers
-// below (they are attached once, not recreated per channel switch).
 let _curIdx = -1;
 let _curStreams = [];
 let _curStreamIndex = 0;
@@ -4186,7 +3900,6 @@ function clearHls() {
   }
 }
 
-// Only called on fatal/unrecoverable errors and page unload — see fix #1.
 window.addEventListener('pagehide', clearHls);
 window.addEventListener('beforeunload', clearHls);
 
@@ -4208,42 +3921,17 @@ function scheduleNextStream() {
   }, 3000);
 }
 
-/* PERF FIX #1: creates the single persistent Hls instance and attaches all
-   listeners exactly once. Channel switches call ensureHls() again, which just
-   returns the already-created instance — no new instance / no new Worker. */
 function ensureHls() {
   if (hls) return hls;
   if (!Hls.isSupported()) return null;
   hls = new Hls({
-    /* PERF FIX #2: enableWorker is now the HLS_ENABLE_WORKER toggle above —
-       flip it to compare on-device instead of assuming true is always faster. */
     enableWorker: HLS_ENABLE_WORKER,
     lowLatencyMode: false,
-    /* PERF FIX #6: tuned for weak TV CPU/RAM. A slightly larger forward
-       buffer (10s vs 6s) means fewer, less-frequent fragment fetch/append
-       cycles — each append is CPU work, so fewer of them reduces stutter.
-       backBufferLength dropped to 0 since this is live playback and old
-       buffer is never replayed — no reason to hold it in RAM. maxBufferSize
-       trimmed slightly to match, since we no longer need headroom for a
-       5s back-buffer. */
     maxBufferLength: 10, maxMaxBufferLength: 20,
     backBufferLength: 0, maxBufferSize: 12 * 1024 * 1024, maxBufferHole: 0.3,
-    /* PERF FIX #7: startLevel 0 (lowest quality) instead of -1 (auto-probe).
-       On a live stream the ABR bandwidth probe before picking a start level
-       is itself a source of startup delay on slow/weak devices — starting at
-       the lowest rendition plays back almost immediately, and normal ABR
-       (abrEwmaFastLive etc. below) upgrades the quality within a few seconds
-       once real throughput is known. If channels ever look too soft on a fast
-       connection, switch this back to -1. */
     startLevel: 0,
     autoStartLoad: true, startFragPrefetch: true, abrEwmaFastLive: 2.0, abrEwmaSlowLive: 5.0,
     abrBandWidthFactor: 0.9, abrBandWidthUpFactor: 0.6, nudgeMaxRetry: 5, highBufferWatchdogPeriod: 2,
-    /* PERF FIX #6: manifest/level timeouts raised a little (6000 -> 8000) so
-       a slow TV network stack doesn't time out and retry prematurely — a
-       failed+retried request is slower overall than just waiting a bit
-       longer for the first one. fragLoadingTimeOut left as-is; it already
-       gives fragments a reasonable window without delaying failure detection
-       for genuinely dead sources. */
     fragLoadingTimeOut: 8000, manifestLoadingTimeOut: 8000, levelLoadingTimeOut: 8000,
     fragLoadingMaxRetry: 3, manifestLoadingMaxRetry: 1, levelLoadingMaxRetry: 2,
     fragLoadingRetryDelay: 500, manifestLoadingRetryDelay: 500,
@@ -4258,11 +3946,6 @@ function ensureHls() {
   });
   hls.on(Hls.Events.ERROR, function(event, data) {
     if (!data.fatal) return;
-    /*
-     * Browsers can suspend live-stream requests while the app is hidden or
-     * when the viewer pauses playback. Those transient errors do not mean
-     * that every source is offline, so never advance the fallback list then.
-     */
     if (!canHandleStreamFailure()) return;
     if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
       try { hls.startLoad(); } catch (_) {}
@@ -4271,8 +3954,6 @@ function ensureHls() {
       try {
         hls.recoverMediaError();
       } catch (_) {
-        // Truly unrecoverable — this is the one case where we do rebuild the
-        // instance from scratch, per fix #1's "only on fatal error" rule.
         clearHls();
         const rebuilt = ensureHls();
         if (rebuilt) rebuilt.loadSource(_curStreams[_curStreamIndex]);
@@ -4291,13 +3972,6 @@ function playStream(idx, streamIndex) {
   if (streamIndex >= streams.length) { showOfflineCard(); return; }
   const url     = streams[streamIndex];
   const thisId  = ++_playId;
-  /* BUGFIX: a network error on the previous channel schedules a 3s fallback
-     (scheduleNextStream) that calls tryNextStream() using whatever channel is
-     "current" when it fires. If the viewer switches channels within that
-     window, the old timer was never cancelled, so it later ran against the
-     *new* (perfectly healthy) channel's _curStreamIndex/_curStreams and could
-     incorrectly show the "Stream Unavailable" card on it. Every new playback
-     attempt supersedes any pending fallback from a previous channel. */
   clearTimeout(_streamFallbackTimer);
   _curIdx = idx;
   _curStreams = streams;
@@ -4306,9 +3980,6 @@ function playStream(idx, streamIndex) {
   vid.muted = userMuted;
 
   if (Hls.isSupported()) {
-    // PERF FIX #1: reuse the existing instance — just point it at the new
-    // channel's URL instead of destroying/recreating (which used to spawn a
-    // brand new Web Worker on every single channel change).
     const instance = ensureHls();
     if (!instance) { showOfflineCard(); return; }
     instance.loadSource(url);
@@ -4352,7 +4023,6 @@ function updatePlayButtonUI() {
   playBtn.textContent = vid.paused ? '\u25B6\uFE0F PLAY' : '\u23F8\uFE0F PAUSE';
 }
 
-/* ── Quality Panel Functions ── */
 function getQualityLevels() {
   if (!hls || !hls.levels || hls.levels.length === 0) return [];
   var levels = [];
@@ -4415,11 +4085,10 @@ function showQualityPanel() {
   qualityPanelOpen = true;
   qualityPanel.classList.add('active');
 
-  /* ── FIX: focus on the currently active option, not always Auto ── */
   var activeIndex = 0;
   if (!isAuto && hls) {
     var activeLevelIndex = qualityLevels.findIndex(function(lvl) { return hls.currentLevel === lvl.index; });
-    if (activeLevelIndex !== -1) activeIndex = activeLevelIndex + 1; // +1 because Auto is the first child
+    if (activeLevelIndex !== -1) activeIndex = activeLevelIndex + 1;
   }
   setQualityFocus(activeIndex);
 
@@ -4642,7 +4311,6 @@ let offlineCardOpen    = false;
 let offlineFocusIdx    = 0;
 
 function showOfflineCard() {
-  /* Do not show a false offline state after backgrounding or a user pause. */
   if (!playerOpen || document.hidden || _playbackPausedByUser) return;
   hideLoading();
   keepOsdChannelVisible();
@@ -4735,27 +4403,6 @@ window.addEventListener('keydown', function(e) {
     return;
   }
 
-  /* BUGFIX: #popup-overlay ("How to fix?"/"Contact Us"/etc.) can be opened
-     ON TOP of the offline card (offlineFixBtn/offlineContactBtn set
-     offlineCardOpen=true and then open the popup without closing the card
-     underneath it — see below). This check used to run AFTER the
-     offlineCardOpen check, so remote/keyboard Back, Enter and arrow keys
-     were still being routed to the offline card hidden underneath instead
-     of the popup that's actually visible on top of it — e.g. Back would
-     silently hide the whole offline card instead of just closing the
-     popup, and Enter would re-click an offline button instead of doing
-     anything to the popup. popupOpen is now checked first so input always
-     goes to whichever layer is actually on top (matches the visible
-     z-index stacking: popup > offline card). */
-  if (popupOpen) {
-    e.stopImmediatePropagation();
-    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { e.preventDefault(); closePopup(); }
-    else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); closePopup(); }
-    else if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); popupBody.scrollBy({ top: 80, behavior: 'smooth' }); }
-    else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); popupBody.scrollBy({ top: -80, behavior: 'smooth' }); }
-    return;
-  }
-
   if (offlineCardOpen) {
     e.preventDefault(); e.stopImmediatePropagation();
     if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') hideOfflineCard();
@@ -4773,6 +4420,15 @@ window.addEventListener('keydown', function(e) {
       if (stateBtnFocusIdx === 1) openPopup('contact');
       else retryLoadPlaylist();
     }
+    return;
+  }
+
+  if (popupOpen) {
+    e.stopImmediatePropagation();
+    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { e.preventDefault(); closePopup(); }
+    else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); closePopup(); }
+    else if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); popupBody.scrollBy({ top: 80, behavior: 'smooth' }); }
+    else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); popupBody.scrollBy({ top: -80, behavior: 'smooth' }); }
     return;
   }
 
@@ -4794,7 +4450,6 @@ window.addEventListener('keydown', function(e) {
       return;
     }
 
-    /* ── Quality Panel Navigation ── */
     if (qualityPanelOpen) {
       e.preventDefault(); e.stopImmediatePropagation();
       var qOpts = qualityOptions.querySelectorAll('.quality-option');
@@ -4844,9 +4499,6 @@ window.addEventListener('keydown', function(e) {
       const catBtns = document.querySelectorAll('.overlay-cat-btn');
       
       if (overlayFocusPane === 'categories') {
-        /* Moving between categories only shifts the highlight instantly; the
-           actual (expensive) channel-list re-render is debounced so holding
-           Up/Down on a remote doesn't queue up dozens of full re-renders. */
         function focusCatBtn(idx) {
           catBtns.forEach(function(b) { b.classList.remove('kbfocus'); });
           overlayCatFocusIdx = idx;
@@ -4956,16 +4608,10 @@ window.addEventListener('keydown', function(e) {
   if (activePane === 'sidebar') {
     const catItems = getCatItems();
     if (!catItems.length && addFavsBtn.hidden) { activePane = 'info'; setInfoFocus(0); return; }
-    /* REMOTE-NAV FIX: "Add Favs" sits above the category list (visually
-       above "Favs"), but it lives outside #cat-list so getCatItems() never
-       included it -- pressing Up from the top category used to just clamp
-       back to itself with nowhere left to go. sidebarOnAddFavs now tracks
-       that extra focus stop explicitly. */
     if (sidebarOnAddFavs) {
       if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); if (catItems.length) setCatFocus(0); else setInfoFocus(0); }
       else if (key === 'ArrowRight' || key === 'Right') { e.preventDefault(); if (filteredChannels.length > 0) { activePane = 'grid'; setGridFocus(Math.min(gridFocusIdx, filteredChannels.length - 1)); } }
       else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); addFavsBtn.click(); }
-      /* ArrowUp: already at the very top of the sidebar -- nothing to do. */
       return;
     }
     if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); if (catFocusIdx + 1 < catItems.length) setCatFocus(catFocusIdx + 1); else setInfoFocus(0); }
@@ -4988,38 +4634,16 @@ window.addEventListener('keydown', function(e) {
   }
 });
 
-/* BUGFIX: pressing the phone/browser Back button (or a swipe-back gesture)
-   used to jump straight to closePlayer() no matter what was open, so if the
-   channel list panel or the Favs panel was open inside the player, Back
-   would skip past it and exit the whole player in one go instead of first
-   closing that panel — leaving the panel's "open" state stuck for a frame
-   and skipping the same step-by-step back behaviour the remote/keyboard
-   Back key already has (see the BACK_KEYS handling above). Now popstate
-   closes whichever panel is on top first (the "How to fix?"/"Contact Us"
-   popup, then the offline card, then the quality panel, then channel/favs
-   overlay, then the controls bar) and re-pushes a history entry so the next
-   Back press continues the same step-by-step close; only once nothing is
-   open on top of the video does Back fully exit the player.
-   BUGFIX: this used to skip straight to closePlayer() even while the
-   "How to fix?" / "Contact Us" popup (#popup-overlay) or the offline card
-   was open. closePlayer() moves #popup-overlay back out of #player-wrap so
-   it renders in normal document flow again, but it never closed the popup
-   itself — so a popup left open when the phone/TV Back button was pressed
-   would still be "active" and immediately reappear on top of the home
-   screen / channel guard right after the player closed. Now popstate closes
-   the popup (and the offline card) first, same as every other panel. */
 window.addEventListener('popstate', function() {
   if (!playerOpen) return;
+
+  // Bug-3 fix: popup খোলা থাকলে প্রথমে শুধু popup বন্ধ করো, পুরো player না।
   if (popupOpen) {
     closePopup();
     history.pushState({ player: true }, '');
     return;
   }
-  if (offlineCardOpen) {
-    hideOfflineCard();
-    history.pushState({ player: true }, '');
-    return;
-  }
+
   if (qualityPanelOpen) {
     hideQualityPanel();
     playerUiMode = 'controls';
@@ -5035,8 +4659,6 @@ window.addEventListener('popstate', function() {
 });
 
 document.addEventListener('visibilitychange', function() {
-  // PERF FIX #5: stop the navbar ticker animation while the tab is hidden —
-  // it was compositing forever in the background for zero visible benefit.
   var navTickerEl = document.querySelector('.nav-ticker');
   if (navTickerEl) navTickerEl.classList.toggle('ticker-paused', document.hidden);
 
@@ -5046,11 +4668,6 @@ document.addEventListener('visibilitychange', function() {
     return;
   }
 
-  /*
-   * Keep a confirmed unavailable state intact after returning to the app.
-   * Only resume HLS and show Loading Stream when playback was actually in
-   * progress before the app was backgrounded.
-   */
   if (playerOpen && !_playbackPausedByUser && hls && !offlineCardOpen) {
     showLoading();
     try { hls.startLoad(-1); } catch (_) {}
@@ -5069,23 +4686,6 @@ vid.addEventListener('canplay',  function() { hideLoading(); hideBufferBadge(); 
 renderInfoList();
 loadPlaylist();
 
-/* REMOTE-NAV PERF FIX #14: `.kb-mode` gates a bunch of `body:not(.kb-mode)
-   .card:hover` / `.overlay-card:hover` rules, so toggling it on <body> forces
-   the browser to re-evaluate hover/focus styles for EVERY card in the grid
-   (hundreds on a big category), not just the one card being focused. That
-   was previously done on every single `mousemove`, with no check that the
-   pointer had actually moved. Many smart TV / remote-control runtimes fire
-   synthetic `mousemove` events (identical coordinates, no real motion) as a
-   side effect of D-pad navigation — so every remote press was triggering a
-   real mouse-move (removes kb-mode, full-grid style recalc) immediately
-   followed by the keydown handler putting it back (another full-grid style
-   recalc), twice per keypress. On a weak TV CPU that synchronous recalc is
-   exactly what was reading as "cards and the header ticker freeze while
-   navigating" — the main thread stalls long enough to visibly stutter both.
-   Now the mousemove handler ignores events that report the same coordinates
-   as last time, so fake/no-op mousemove noise from the remote no longer
-   fights with keyboard mode on every press; only an actual pointer move
-   drops out of keyboard mode. */
 let _lastMouseX = null, _lastMouseY = null;
 window.addEventListener('mousemove', function(e) {
   if (e.clientX === _lastMouseX && e.clientY === _lastMouseY) return;
