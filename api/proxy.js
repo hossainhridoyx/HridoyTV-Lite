@@ -1,4 +1,5 @@
 export default async function handler(req, res) {
+  // CORS হেডার সেট করা (যাতে যেকোনো ওয়েবসাইট বা প্লেয়ার থেকে স্ট্রিম কাজ করে)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -7,6 +8,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  // URL প্যারামিটার না থাকলে ডিফল্টভাবে আপনার প্রদত্ত লিংকটি ব্যবহার করবে
   const targetUrl = req.query.url || 'http://mxonlive.xyz/live/xap/444348.m3u8?e=1786991382&token=ab73f64105580c1ccac35c501b57e15f8ce4c4cf938f1e054656a6d830d0c61f';
 
   try {
