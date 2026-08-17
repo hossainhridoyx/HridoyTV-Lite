@@ -4,7 +4,7 @@
 const EXPIRE_CODE = "48436844"; 
 
 // মূল M3U প্লেলিস্ট URL
-const PLAYLIST_URL = "https://raw.githubusercontent.com/johirxofficial/otv-auto-updated-playlist/main/otv.m3u";
+const PLAYLIST_URL = "playlist link";
 // ===================================================
 
 export default async function handler(req, res) {
