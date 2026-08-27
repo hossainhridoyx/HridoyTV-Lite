@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="bn">
 <head>
 <meta charset="UTF-8">
@@ -2376,6 +2376,60 @@
     .mg-links { padding: 4px 26px 26px; }
   }
 
+
+
+  /* ── TV remote performance/focus overrides ──
+     The player panels are stateful UI, so they should never wait for an
+     animation before the focused content becomes usable. */
+  .channel-overlay,
+  .favs-overlay {
+    transition: none !important;
+    transform: translate3d(-100%, 0, 0);
+  }
+  .channel-overlay.active,
+  .favs-overlay.active {
+    transform: translate3d(0, 0, 0);
+  }
+  .favs-overlay { transform: translate3d(100%, 0, 0); }
+  .favs-overlay.active { transform: translate3d(0, 0, 0); }
+
+  .overlay-cat-btn,
+  .overlay-card {
+    transition: none !important;
+  }
+  .overlay-cat-btn.kbfocus,
+  .overlay-cat-btn.active.kbfocus {
+    background: var(--focus) !important;
+    color: #000 !important;
+    border-left-color: var(--focus) !important;
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+    box-shadow: 0 0 14px var(--focus-glow), inset 0 0 0 1px rgba(255,255,255,0.28) !important;
+    z-index: 3;
+  }
+  .overlay-card.kbfocus {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+  }
+  body:not(.kb-mode) .overlay-cat-btn:hover {
+    background: var(--focus) !important;
+    color: #000 !important;
+    border-left-color: var(--focus) !important;
+    box-shadow: 0 0 14px var(--focus-glow);
+  }
+  body:not(.kb-mode) .overlay-card:hover {
+    background: var(--focus) !important;
+    box-shadow: 0 0 16px var(--focus-glow) !important;
+  }
+  body:not(.kb-mode) .overlay-card:hover .overlay-name {
+    color: #000 !important;
+    font-weight: 700;
+  }
+  .overlay-grid,
+  .overlay-cat-list {
+    scroll-behavior: auto !important;
+  }
+
 </style>
 </head>
 <body>
@@ -3571,34 +3625,45 @@ function renderGrid() {
 }
 
 function renderOverlayCategories() {
-  overlayCatList.innerHTML = '';
+  overlayCatList.textContent = '';
+  const frag = document.createDocumentFragment();
+
   categories.forEach(function(cat, idx) {
     const btn = document.createElement('button');
-    btn.className = 'overlay-cat-btn' + (cat === currentOverlayCategory ? ' active' : '');
+    const isActive = cat === currentOverlayCategory;
+    const isFocused = overlayFocusPane === 'categories' && idx === overlayCatFocusIdx;
+    btn.className = 'overlay-cat-btn' + (isActive ? ' active' : '') + (isFocused ? ' kbfocus' : '');
     btn.dataset.category = cat;
     btn.tabIndex = -1;
-    
+
     const emojiSpan = document.createElement('span');
     emojiSpan.className = 'overlay-cat-emoji';
     emojiSpan.textContent = OVERLAY_CAT_EMOJI[cat] || '📂';
     btn.appendChild(emojiSpan);
-    
+
     const labelSpan = document.createElement('span');
     labelSpan.className = 'overlay-cat-label';
     labelSpan.textContent = OVERLAY_CAT_LABEL[cat] || cat;
     btn.appendChild(labelSpan);
-    
-    btn.addEventListener('click', function() {
+
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
       currentOverlayCategory = cat;
+      overlayCatFocusIdx = idx;
+      overlayFocusPane = 'list';
       renderOverlayCategories();
       renderOverlayGrid(cat, function() {
+        if (playerUiMode !== 'overlay') return;
         const playingIndex = getCurrentOverlayChannelIndex();
         focusOverlayCard(playingIndex >= 0 ? playingIndex : 0);
+        updateOverlayPlayingCard();
         resetOverlayTimer();
       });
     });
-    overlayCatList.appendChild(btn);
+    frag.appendChild(btn);
   });
+
+  overlayCatList.appendChild(frag);
 }
 
 function getCurrentOverlayChannelIndex() {
@@ -3613,9 +3678,9 @@ function getCurrentOverlayChannelIndex() {
 let _overlayRendered = false;
 
 function renderOverlayGrid(category, onComplete) {
-  const _renderGen = ++_overlayRenderGen;
+  const renderGen = ++_overlayRenderGen;
   _invalidateOCards();
-  overlayGrid.innerHTML = '';
+  overlayGrid.textContent = '';
   overlayGrid.scrollTop = 0;
 
   filteredOverlayChannels = category === 'Favs'
@@ -3624,7 +3689,7 @@ function renderOverlayGrid(category, onComplete) {
       }).filter(Boolean).reverse()
     : category === 'All Channels'
     ? channels.slice()
-    : channels.filter(c => (c.categories || [c.category]).includes(category));
+    : channels.filter(function(c) { return (c.categories || [c.category]).includes(category); });
 
   if (!filteredOverlayChannels.length) {
     if (category === 'Favs') {
@@ -3638,65 +3703,58 @@ function renderOverlayGrid(category, onComplete) {
     return;
   }
 
-  const CHUNK = 30;
-  let i = 0;
-  const total = filteredOverlayChannels.length;
+  /* Build one fragment in one pass. This avoids the old requestAnimationFrame
+     chunk queue, which made the panel wait for every chunk before centering
+     the active channel. */
+  const fragment = document.createDocumentFragment();
+  filteredOverlayChannels.forEach(function(ch) {
+    if (renderGen !== _overlayRenderGen) return;
+    const globalIdx = channels.findIndex(function(c) {
+      return c.name === ch.name && c.url === ch.url;
+    });
 
-  function renderChunk() {
-    if (_renderGen !== _overlayRenderGen) return;
-    const frag = document.createDocumentFragment();
-    const end  = Math.min(i + CHUNK, total);
-    for (; i < end; i++) {
-      const ch  = filteredOverlayChannels[i];
-      const globalIdx = channels.findIndex(c => c.name === ch.name);
+    const oCard = document.createElement('div');
+    oCard.className = 'overlay-card';
+    oCard.tabIndex = -1;
 
-      const oCard = document.createElement('div');
-      oCard.className = 'overlay-card';
-      oCard.tabIndex = -1;
+    const oLogoCol = document.createElement('div');
+    oLogoCol.className = 'overlay-logo-col';
+    const oImg = document.createElement('img');
+    oImg.className = 'overlay-logo';
+    oImg.loading = 'lazy';
+    oImg.decoding = 'async';
+    oImg.src = ch.logo || DEFAULT_LOGO;
+    oImg.onerror = function() { this.src = DEFAULT_LOGO; };
+    oLogoCol.appendChild(oImg);
+    oCard.appendChild(oLogoCol);
 
-      const oLogoCol = document.createElement('div');
-      oLogoCol.className = 'overlay-logo-col';
-      const oImg = document.createElement('img');
-      oImg.className = 'overlay-logo';
-      oImg.loading  = 'lazy'; oImg.decoding = 'async';
-      oImg.src = ch.logo || DEFAULT_LOGO;
-      oImg.onerror = function() { this.src = DEFAULT_LOGO; };
-      oLogoCol.appendChild(oImg);
-      oCard.appendChild(oLogoCol);
+    const oNameCol = document.createElement('div');
+    oNameCol.className = 'overlay-name-col';
+    const oName = document.createElement('div');
+    oName.className = 'overlay-name';
+    oName.textContent = ch.name;
+    oNameCol.appendChild(oName);
 
-      const oNameCol = document.createElement('div');
-      oNameCol.className = 'overlay-name-col';
-      const oName = document.createElement('div');
-      oName.className = 'overlay-name';
-      oName.textContent = ch.name;
-      oNameCol.appendChild(oName);
-      
-      if (ch.isNew) {
-        const oNewBadge = document.createElement('div');
-        oNewBadge.className = 'overlay-new-badge';
-        oNewBadge.textContent = 'NEW';
-        oNameCol.appendChild(oNewBadge);
-      }
-      oCard.appendChild(oNameCol);
-
-      oCard.addEventListener('click', function(e) {
-        e.stopPropagation();
-        playChannelFromOverlay(globalIdx);
-      });
-      frag.appendChild(oCard);
+    if (ch.isNew) {
+      const oNewBadge = document.createElement('div');
+      oNewBadge.className = 'overlay-new-badge';
+      oNewBadge.textContent = 'NEW';
+      oNameCol.appendChild(oNewBadge);
     }
-    overlayGrid.appendChild(frag);
-    if (i < total) {
-      requestAnimationFrame(renderChunk);
-    } else {
-      _oCardsArr = Array.from(overlayGrid.children);
-      updateOverlayPlayingCard();
-      if (onComplete) onComplete();
-    }
-  }
-  requestAnimationFrame(renderChunk);
+    oCard.appendChild(oNameCol);
+
+    oCard.addEventListener('click', function(e) {
+      e.stopPropagation();
+      playChannelFromOverlay(globalIdx);
+    });
+    fragment.appendChild(oCard);
+  });
+
+  overlayGrid.appendChild(fragment);
+  _oCardsArr = Array.from(overlayGrid.children);
+  updateOverlayPlayingCard();
+  if (onComplete) onComplete();
 }
-
 function playChannelFromOverlay(globalIdx) {
   if (globalIdx < 0 || globalIdx >= channels.length) return;
   currentChannelIdx = globalIdx;
@@ -4166,16 +4224,37 @@ function showChannelOverlay() {
   keepOsdChannelVisible();
   clearTimeout(controlHideTimer);
   _overlayColsCache = 0;
-  
+
+  /* If the last selected category does not contain the currently playing
+     channel, fall back to All immediately so the active channel is always
+     visible and can be centered on panel open. */
+  if (currentChannelIdx >= 0 && currentChannelIdx < channels.length) {
+    const currentCh = channels[currentChannelIdx];
+    const categoryChannels = currentOverlayCategory === 'Favs'
+      ? favoriteChannels.map(function(name) {
+          return channels.find(function(channel) { return channel.name === name; });
+        }).filter(Boolean)
+      : currentOverlayCategory === 'All Channels'
+      ? channels
+      : channels.filter(function(c) {
+          return (c.categories || [c.category]).includes(currentOverlayCategory);
+        });
+    const isVisible = categoryChannels.some(function(c) {
+      return c && c.name === currentCh.name && c.url === currentCh.url;
+    });
+    if (!isVisible) currentOverlayCategory = 'All Channels';
+  }
+
+  /* Both the panel class and its complete DOM content are applied in this
+     same task; there is no transition/chunk delay before focus is centered. */
   renderOverlayCategories();
-  
   renderOverlayGrid(currentOverlayCategory, function() {
     if (playerUiMode !== 'overlay') return;
     const playingIndex = getCurrentOverlayChannelIndex();
     focusOverlayCard(playingIndex >= 0 ? playingIndex : 0);
     updateOverlayPlayingCard();
   });
-  
+
   resetOverlayTimer();
 }
 
@@ -4284,15 +4363,15 @@ function focusOverlayCard(idx) {
   clearOverlayKbFocus();
   _focusedOverlayEl = _oCardsArr[overlayFocusIdx];
   _focusedOverlayEl.classList.add('kbfocus');
-  var _scrollTarget = _focusedOverlayEl;
-  requestAnimationFrame(function() {
-    if (_scrollTarget !== _focusedOverlayEl) return;
-    var activeGrid   = playerUiMode === 'favs' ? favsGrid : overlayGrid;
-    var cardCenter   = _scrollTarget.offsetTop + _scrollTarget.offsetHeight / 2;
-    var targetScroll = cardCenter - activeGrid.clientHeight / 2;
-    var maxScroll    = activeGrid.scrollHeight - activeGrid.clientHeight;
-    activeGrid.scrollTop = Math.max(0, Math.min(targetScroll, maxScroll));
-  });
+
+  /* Set scrollTop in the same task as focus. No animation frame or smooth
+     scroll is used, so the focused/playing channel is centered immediately. */
+  var activeGrid   = playerUiMode === 'favs' ? favsGrid : overlayGrid;
+  var cardCenter   = _focusedOverlayEl.offsetTop + _focusedOverlayEl.offsetHeight / 2;
+  var targetScroll = cardCenter - activeGrid.clientHeight / 2;
+  var maxScroll    = activeGrid.scrollHeight - activeGrid.clientHeight;
+  activeGrid.scrollTop = Math.max(0, Math.min(targetScroll, maxScroll));
+
   if (playerUiMode === 'overlay' || playerUiMode === 'favs') resetOverlayTimer();
 }
 
@@ -4500,14 +4579,15 @@ window.addEventListener('keydown', function(e) {
       
       if (overlayFocusPane === 'categories') {
         function focusCatBtn(idx) {
+          if (!catBtns[idx]) return;
           catBtns.forEach(function(b) { b.classList.remove('kbfocus'); });
           overlayCatFocusIdx = idx;
           var btn = catBtns[idx];
           btn.classList.add('kbfocus');
           btn.focus({ preventScroll: true });
-          btn.scrollIntoView({ block: 'nearest' });
-          clearTimeout(_overlayCatSwitchTimer);
-          _overlayCatSwitchTimer = setTimeout(function() { btn.click(); }, 140);
+          btn.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+          /* Do not use the old 140 ms delayed click. Focus remains visible;
+             ArrowRight or Enter commits the category instantly. */
         }
         function enterOverlayList() {
           clearTimeout(_overlayCatSwitchTimer);
