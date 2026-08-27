@@ -2430,6 +2430,29 @@
     scroll-behavior: auto !important;
   }
 
+
+
+  /* ── Final TV overlay polish ── */
+  .overlay-cat-btn {
+    gap: 8px !important;
+    padding-top: 11px !important;
+    padding-bottom: 11px !important;
+  }
+  .overlay-cat-emoji {
+    display: block;
+    margin-bottom: 2px;
+    line-height: 1.15;
+  }
+  .overlay-cat-label {
+    display: block;
+    line-height: 1.35;
+  }
+  /* Keep the notice in the OSD layer during Channel-panel scrolling.
+     It remains non-interactive so remote focus can still operate the panel. */
+  #offline-card.visible {
+    pointer-events: none !important;
+  }
+
 </style>
 </head>
 <body>
@@ -4232,7 +4255,6 @@ function showChannelOverlay() {
   favsOverlay.classList.remove('active');
   playerControls.classList.remove('active');
   hideQualityPanel();
-  hideOfflineCard();
   keepOsdChannelVisible();
   clearTimeout(controlHideTimer);
   _overlayColsCache = 0;
@@ -4275,7 +4297,6 @@ function showFavsOverlay() {
   channelOverlay.classList.remove('active');
   playerControls.classList.remove('active');
   hideQualityPanel();
-  hideOfflineCard();
   keepOsdChannelVisible();
   clearTimeout(controlHideTimer);
   _invalidateOCards();
