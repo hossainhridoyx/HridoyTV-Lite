@@ -2453,6 +2453,22 @@
     pointer-events: none !important;
   }
 
+
+
+  /* ── Persistent Stream Unavailable layer ──
+     Keep this notice outside #osd's stacking context. The Channel panel is
+     scrollable, while this sibling layer remains fixed above it. */
+  #offline-card {
+    position: absolute !important;
+    z-index: 100030 !important;
+    pointer-events: none !important;
+  }
+  #offline-card.visible {
+    opacity: 1 !important;
+    pointer-events: none !important;
+    visibility: visible !important;
+  }
+
 </style>
 </head>
 <body>
@@ -2631,7 +2647,13 @@
       <span class="buffer-loader-dots" aria-hidden="true"><span></span><span></span><span></span></span>
       <span>Loading Stream</span>
     </div>
-    <div id="offline-card">
+
+    <div id="mute-status-popup" role="status" aria-live="polite" aria-hidden="true">
+      <span class="mute-status-icon" aria-hidden="true">&#x1F507;</span>
+      <span>Sound is muted</span>
+    </div>
+  </div>
+  <div id="offline-card">
       <div class="offline-status-icon" aria-hidden="true">📡</div>
       <div class="offline-title">Stream Unavailable</div>
       <div class="offline-actions">
@@ -2639,11 +2661,6 @@
         <button class="offline-btn" id="offline-contact-btn" tabindex="-1"><i class="fa-solid fa-headset" aria-hidden="true"></i> Support / Contact</button>
       </div>
     </div>
-    <div id="mute-status-popup" role="status" aria-live="polite" aria-hidden="true">
-      <span class="mute-status-icon" aria-hidden="true">&#x1F507;</span>
-      <span>Sound is muted</span>
-    </div>
-  </div>
   <div class="player-channel-identity" id="osd-channel" aria-live="polite">
     <img class="osd-channel-logo" id="osd-channel-logo" alt="">
     <span class="osd-channel-name" id="osd-channel-name"></span>
