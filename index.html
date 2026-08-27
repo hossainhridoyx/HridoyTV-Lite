@@ -3666,6 +3666,17 @@ function renderOverlayCategories() {
   overlayCatList.appendChild(frag);
 }
 
+function focusOverlayCategory(idx) {
+  const buttons = overlayCatList.querySelectorAll('.overlay-cat-btn');
+  if (!buttons.length) return;
+  overlayCatFocusIdx = Math.max(0, Math.min(idx, buttons.length - 1));
+  buttons.forEach(function(button) { button.classList.remove('kbfocus'); });
+  const button = buttons[overlayCatFocusIdx];
+  button.classList.add('kbfocus');
+  button.focus({ preventScroll: true });
+  button.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+}
+
 function getCurrentOverlayChannelIndex() {
   if (currentChannelIdx < 0 || currentChannelIdx >= channels.length) return -1;
   const currentCh = channels[currentChannelIdx];
@@ -4221,6 +4232,7 @@ function showChannelOverlay() {
   favsOverlay.classList.remove('active');
   playerControls.classList.remove('active');
   hideQualityPanel();
+  hideOfflineCard();
   keepOsdChannelVisible();
   clearTimeout(controlHideTimer);
   _overlayColsCache = 0;
@@ -4263,6 +4275,7 @@ function showFavsOverlay() {
   channelOverlay.classList.remove('active');
   playerControls.classList.remove('active');
   hideQualityPanel();
+  hideOfflineCard();
   keepOsdChannelVisible();
   clearTimeout(controlHideTimer);
   _invalidateOCards();
@@ -4483,12 +4496,19 @@ window.addEventListener('keydown', function(e) {
   }
 
   if (offlineCardOpen) {
-    e.preventDefault(); e.stopImmediatePropagation();
-    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') hideOfflineCard();
-    else if (key === 'ArrowRight' || key === 'Right') setOfflineFocus(1);
-    else if (key === 'ArrowLeft' || key === 'Left') setOfflineFocus(0);
-    else if (ENTER_KEYS.has(code) || key === 'Enter') [offlineFixBtn, offlineContactBtn][offlineFocusIdx].click();
-    return;
+    /* The channel/favourites panel has priority over the non-modal offline
+       notice. Remove the notice and let the same key continue to the panel
+       navigation below, so channels can still be changed or switched. */
+    if (playerUiMode === 'overlay' || playerUiMode === 'favs') {
+      hideOfflineCard();
+    } else {
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') hideOfflineCard();
+      else if (key === 'ArrowRight' || key === 'Right') setOfflineFocus(1);
+      else if (key === 'ArrowLeft' || key === 'Left') setOfflineFocus(0);
+      else if (ENTER_KEYS.has(code) || key === 'Enter') [offlineFixBtn, offlineContactBtn][offlineFocusIdx].click();
+      return;
+    }
   }
 
   if (stateErrorOpen) {
@@ -4580,12 +4600,7 @@ window.addEventListener('keydown', function(e) {
       if (overlayFocusPane === 'categories') {
         function focusCatBtn(idx) {
           if (!catBtns[idx]) return;
-          catBtns.forEach(function(b) { b.classList.remove('kbfocus'); });
-          overlayCatFocusIdx = idx;
-          var btn = catBtns[idx];
-          btn.classList.add('kbfocus');
-          btn.focus({ preventScroll: true });
-          btn.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+          focusOverlayCategory(idx);
           /* Do not use the old 140 ms delayed click. Focus remains visible;
              ArrowRight or Enter commits the category instantly. */
         }
@@ -4627,19 +4642,24 @@ window.addEventListener('keydown', function(e) {
             overlayFocusPane = 'categories';
             const activeCatBtn = document.querySelector('.overlay-cat-btn.active');
             if (activeCatBtn) {
-              activeCatBtn.focus();
-              catBtns.forEach((btn, idx) => { if(btn.classList.contains('active')) overlayCatFocusIdx = idx; });
+              catBtns.forEach(function(btn, idx) {
+                if (btn.classList.contains('active')) overlayCatFocusIdx = idx;
+              });
+              focusOverlayCategory(overlayCatFocusIdx);
             }
           }
         } else if (key === 'ArrowRight' || key === 'Right') {
           e.preventDefault();
+          hideAllPlayerPanels();
         } else if (key === 'ArrowLeft' || key === 'Left') {
           e.preventDefault();
           overlayFocusPane = 'categories';
           const activeCatBtn = document.querySelector('.overlay-cat-btn.active');
           if (activeCatBtn) {
-            activeCatBtn.focus();
-            catBtns.forEach((btn, idx) => { if(btn.classList.contains('active')) overlayCatFocusIdx = idx; });
+            catBtns.forEach(function(btn, idx) {
+              if (btn.classList.contains('active')) overlayCatFocusIdx = idx;
+            });
+            focusOverlayCategory(overlayCatFocusIdx);
           }
         } else if (ENTER_KEYS.has(code) || key === 'Enter') {
           e.preventDefault();
@@ -4660,7 +4680,7 @@ window.addEventListener('keydown', function(e) {
         if (overlayFocusIdx > 0) focusOverlayCard(overlayFocusIdx - 1);
       } else if (key === 'ArrowLeft' || key === 'Left') {
         e.preventDefault();
-        showChannelOverlay();
+        hideAllPlayerPanels();
       } else if (ENTER_KEYS.has(code) || key === 'Enter') {
         e.preventDefault();
         if (filteredFavChannels[overlayFocusIdx]) {
