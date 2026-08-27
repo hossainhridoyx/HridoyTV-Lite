@@ -4533,20 +4533,16 @@ window.addEventListener('keydown', function(e) {
     return;
   }
 
-  if (offlineCardOpen) {
-    /* The channel/favourites panel has priority over the non-modal offline
-       notice. Remove the notice and let the same key continue to the panel
-       navigation below, so channels can still be changed or switched. */
-    if (playerUiMode === 'overlay' || playerUiMode === 'favs') {
-      hideOfflineCard();
-    } else {
-      e.preventDefault(); e.stopImmediatePropagation();
-      if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') hideOfflineCard();
-      else if (key === 'ArrowRight' || key === 'Right') setOfflineFocus(1);
-      else if (key === 'ArrowLeft' || key === 'Left') setOfflineFocus(0);
-      else if (ENTER_KEYS.has(code) || key === 'Enter') [offlineFixBtn, offlineContactBtn][offlineFocusIdx].click();
-      return;
-    }
+  if (offlineCardOpen && playerUiMode !== 'overlay' && playerUiMode !== 'favs') {
+    /* Outside a channel/favourites panel the offline notice is temporarily
+       modal and owns the remote keys. While a panel is open, this block is
+       deliberately skipped so Arrow/Back/Enter reaches panel navigation. */
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') hideOfflineCard();
+    else if (key === 'ArrowRight' || key === 'Right') setOfflineFocus(1);
+    else if (key === 'ArrowLeft' || key === 'Left') setOfflineFocus(0);
+    else if (ENTER_KEYS.has(code) || key === 'Enter') [offlineFixBtn, offlineContactBtn][offlineFocusIdx].click();
+    return;
   }
 
   if (stateErrorOpen) {
