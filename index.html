@@ -4495,6 +4495,7 @@ let offlineFocusIdx    = 0;
 function showOfflineCard() {
   if (!playerOpen || document.hidden || _playbackPausedByUser) return;
   hideLoading();
+  hideBufferBadge();
   keepOsdChannelVisible();
   offlineCard.classList.add('visible');
   offlineCardOpen = true;
