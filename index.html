@@ -839,6 +839,51 @@
     text-shadow: 0 1px 8px rgba(0,0,0,0.5);
   }
 
+  /*
+   * Keep the channel identity inside the loading layer itself.
+   * This makes it stay above the loading backdrop during remote channel
+   * changes on Smart TV browsers, where sibling z-index layers can be
+   * painted differently.
+   */
+  .loading-channel-identity {
+    position: absolute;
+    top: clamp(26px, 5.5vh, 62px);
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: min(86vw, 680px);
+    display: none;
+    align-items: center;
+    gap: clamp(7px, 1vw, 12px);
+    padding: clamp(7px, 1.1vw, 12px) clamp(12px, 1.7vw, 22px);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.92);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.36);
+    color: #fff;
+    font-family: var(--font);
+    font-size: clamp(0.86rem, 1.5vw, 1.22rem);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    z-index: 1;
+  }
+  .loading-channel-identity.visible {
+    display: inline-flex;
+  }
+  .loading-channel-logo {
+    width: clamp(28px, 3vw, 40px);
+    height: clamp(28px, 3vw, 40px);
+    object-fit: contain;
+    border-radius: 50%;
+    background: #fff;
+    padding: 2px;
+    flex: 0 0 auto;
+  }
+  .loading-channel-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+  }
+
   #mute-status-popup {
     position: absolute;
     top: 50%;
@@ -907,12 +952,6 @@
   .player-channel-identity.visible {
     display: inline-flex;
     transform: translateX(-50%) translateY(0);
-  }
-  .player-channel-identity.loading-visible {
-    display: inline-flex;
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-    z-index: 100100;
   }
   .osd-channel-logo {
     width: clamp(28px, 3vw, 40px);
@@ -2644,6 +2683,10 @@
   <img src="https://i.postimg.cc/8k7t1Zhd/hridoytv-logo-h.png" class="player-watermark" alt="HridoyTV">
   <div id="osd">
     <div id="loading-overlay" role="status" aria-live="polite" aria-label="Loading stream">
+      <div class="loading-channel-identity" id="loading-channel-identity" aria-live="polite">
+        <img class="loading-channel-logo" id="loading-channel-logo" alt="">
+        <span class="loading-channel-name" id="loading-channel-name"></span>
+      </div>
       <div class="stream-loader-dots" aria-hidden="true">
         <span></span><span></span><span></span><span></span>
       </div>
@@ -2854,6 +2897,9 @@ const stateFixList    = document.getElementById('state-fix-list');
 const playerWrap      = document.getElementById('player-wrap');
 const vid             = document.getElementById('vid');
 const loadingOverlay  = document.getElementById('loading-overlay');
+const loadingChannelIdentity = document.getElementById('loading-channel-identity');
+const loadingChannelLogo = document.getElementById('loading-channel-logo');
+const loadingChannelName = document.getElementById('loading-channel-name');
 const bufferBadge     = document.getElementById('buffer-badge');
 const muteStatusPopup = document.getElementById('mute-status-popup');
 const osdChannel      = document.getElementById('osd-channel');
@@ -3822,8 +3868,8 @@ function playChannelFromOverlay(globalIdx) {
   const selectedIndex = getCurrentOverlayChannelIndex();
   if (selectedIndex >= 0) focusOverlayCard(selectedIndex);
   else clearOverlayKbFocus();
-  showLoading();
   showOsdChannel(ch);
+  showLoading();
   updateOverlayPlayingCard();
   playStream(globalIdx, 0);
   
@@ -3842,8 +3888,8 @@ function changePlayerChannel(direction) {
 
   currentChannelIdx = nextIndex;
   const ch = channels[nextIndex];
-  showLoading();
   showOsdChannel(ch);
+  showLoading();
   updateOverlayPlayingCard();
   playStream(nextIndex, 0);
 }
@@ -3947,8 +3993,8 @@ function openPlayer(idx, streamIndex) {
     enterRealFullscreen();
     history.pushState({ player: true }, '');
   }
-  showLoading();
   showOsdChannel(ch);
+  showLoading();
   updateMuteButtonUI();
   updatePlayButtonUI();
   playerControls.classList.remove('active');
@@ -4539,14 +4585,14 @@ offlineContactBtn.addEventListener('click', function(e) {
 
 function showLoading()  {
   loadingOverlay.classList.add('visible');
+  if (osdChannelName.textContent) loadingChannelIdentity.classList.add('visible');
   keepOsdChannelVisible();
-  if (osdChannelName.textContent) osdChannel.classList.add('loading-visible');
   hideBufferBadge();
   hideOfflineCard();
 }
 function hideLoading()  {
   loadingOverlay.classList.remove('visible');
-  osdChannel.classList.remove('loading-visible');
+  loadingChannelIdentity.classList.remove('visible');
   scheduleOsdChannelHide();
 }
 function showBufferBadge() {
@@ -4555,11 +4601,22 @@ function showBufferBadge() {
 function hideBufferBadge() { clearTimeout(_bufferTimer); bufferBadge.classList.remove('visible'); }
 function showOsdChannel(channel) {
   if (!channel) return;
-  osdChannelName.textContent = channel.name || 'Live';
-  osdChannelLogo.src = channel.logo || DEFAULT_LOGO;
+  const channelName = channel.name || 'Live';
+  const channelLogo = channel.logo || DEFAULT_LOGO;
+
+  osdChannelName.textContent = channelName;
+  osdChannelLogo.src = channelLogo;
   osdChannelLogo.onerror = function() { this.onerror = null; this.src = DEFAULT_LOGO; };
-  osdChannelLogo.alt = (channel.name || 'Live') + ' logo';
-  if (loadingOverlay.classList.contains('visible')) osdChannel.classList.add('loading-visible');
+  osdChannelLogo.alt = channelName + ' logo';
+
+  loadingChannelName.textContent = channelName;
+  loadingChannelLogo.src = channelLogo;
+  loadingChannelLogo.onerror = function() { this.onerror = null; this.src = DEFAULT_LOGO; };
+  loadingChannelLogo.alt = channelName + ' logo';
+  if (loadingOverlay.classList.contains('visible')) {
+    loadingChannelIdentity.classList.add('visible');
+  }
+
   keepOsdChannelVisible();
 }
 function keepOsdChannelVisible() {
