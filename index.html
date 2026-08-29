@@ -908,6 +908,12 @@
     display: inline-flex;
     transform: translateX(-50%) translateY(0);
   }
+  .player-channel-identity.loading-visible {
+    display: inline-flex;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    z-index: 100100;
+  }
   .osd-channel-logo {
     width: clamp(28px, 3vw, 40px);
     height: clamp(28px, 3vw, 40px);
@@ -4531,8 +4537,18 @@ offlineContactBtn.addEventListener('click', function(e) {
   openPopup('contact');
 });
 
-function showLoading()  { loadingOverlay.classList.add('visible'); keepOsdChannelVisible(); hideBufferBadge(); hideOfflineCard(); }
-function hideLoading()  { loadingOverlay.classList.remove('visible'); scheduleOsdChannelHide(); }
+function showLoading()  {
+  loadingOverlay.classList.add('visible');
+  keepOsdChannelVisible();
+  if (osdChannelName.textContent) osdChannel.classList.add('loading-visible');
+  hideBufferBadge();
+  hideOfflineCard();
+}
+function hideLoading()  {
+  loadingOverlay.classList.remove('visible');
+  osdChannel.classList.remove('loading-visible');
+  scheduleOsdChannelHide();
+}
 function showBufferBadge() {
   if (!loadingOverlay.classList.contains('visible')) bufferBadge.classList.add('visible');
 }
@@ -4543,6 +4559,7 @@ function showOsdChannel(channel) {
   osdChannelLogo.src = channel.logo || DEFAULT_LOGO;
   osdChannelLogo.onerror = function() { this.onerror = null; this.src = DEFAULT_LOGO; };
   osdChannelLogo.alt = (channel.name || 'Live') + ' logo';
+  if (loadingOverlay.classList.contains('visible')) osdChannel.classList.add('loading-visible');
   keepOsdChannelVisible();
 }
 function keepOsdChannelVisible() {
