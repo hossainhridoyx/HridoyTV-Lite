@@ -2697,6 +2697,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.8.0/dist/mpegts.min.js"></script>
 
 <script>
 "use strict";
@@ -2792,6 +2793,7 @@ let favsMenuOpen = false;
 let favNoticeTimer = null;
 let playerOpen       = false;
 let hls              = null;
+let mpegtsPlayer     = null;
 const HLS_ENABLE_WORKER = false;
 let osdTimer         = null;
 let _bufferTimer     = null;
@@ -3985,6 +3987,10 @@ function closePlayer() {
   hideLoading(); hideBufferBadge(); hideOfflineCard(); hideAllPlayerPanels(); hideQualityPanel();
   clearTimeout(_streamFallbackTimer);
   if (hls) { try { hls.stopLoad(); } catch (_) {} }
+  if (mpegtsPlayer) {
+    try { mpegtsPlayer.pause(); mpegtsPlayer.unload(); mpegtsPlayer.detachMediaElement(); mpegtsPlayer.destroy(); } catch (_) {}
+    mpegtsPlayer = null;
+  }
   vid.pause();
   exitRealFullscreen(); setAppHeight();
   if (popupOverlay.parentElement === playerWrap) {
@@ -4006,6 +4012,10 @@ function clearHls() {
   if (hls) {
     try { hls.stopLoad(); hls.detachMedia(); hls.destroy(); } catch (_) {}
     hls = null;
+  }
+  if (mpegtsPlayer) {
+    try { mpegtsPlayer.pause(); mpegtsPlayer.unload(); mpegtsPlayer.detachMediaElement(); mpegtsPlayer.destroy(); } catch (_) {}
+    mpegtsPlayer = null;
   }
 }
 
@@ -4074,6 +4084,41 @@ function ensureHls() {
   return hls;
 }
 
+function isTsStream(url) {
+  return /\.ts(?:[?#]|$)/i.test(String(url || ''));
+}
+
+function playTsStream(url, thisId) {
+  if (!window.mpegts || !window.mpegts.isSupported()) {
+    showOfflineCard();
+    return;
+  }
+
+  mpegtsPlayer = window.mpegts.createPlayer({
+    type: 'mpegts',
+    isLive: true,
+    url: url
+  }, {
+    enableWorker: false,
+    lazyLoad: false,
+    autoCleanupSourceBuffer: true,
+    fixAudioTimestampGap: true
+  });
+
+  mpegtsPlayer.attachMediaElement(vid);
+
+  if (window.mpegts.Events && window.mpegts.Events.ERROR) {
+    mpegtsPlayer.on(window.mpegts.Events.ERROR, function() {
+      if (thisId === _playId && canHandleStreamFailure()) tryNextStream();
+    });
+  }
+
+  mpegtsPlayer.load();
+  mpegtsPlayer.play().catch(function() {
+    if (_playId === thisId) updateMuteButtonUI();
+  });
+}
+
 function playStream(idx, streamIndex) {
   const ch = channels[idx];
   if (!ch) return;
@@ -4088,7 +4133,14 @@ function playStream(idx, streamIndex) {
   _playbackPausedByUser = false;
   vid.muted = userMuted;
 
-  if (Hls.isSupported()) {
+  if (isTsStream(url)) {
+    clearHls();
+    playTsStream(url, thisId);
+  } else if (Hls.isSupported()) {
+    if (mpegtsPlayer) {
+      try { mpegtsPlayer.pause(); mpegtsPlayer.unload(); mpegtsPlayer.detachMediaElement(); mpegtsPlayer.destroy(); } catch (_) {}
+      mpegtsPlayer = null;
+    }
     const instance = ensureHls();
     if (!instance) { showOfflineCard(); return; }
     instance.loadSource(url);
@@ -4540,6 +4592,10 @@ window.addEventListener('keydown', function(e) {
     e.preventDefault(); e.stopImmediatePropagation();
     if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') {
       hideOfflineCard();
+    } else if (key === 'ArrowUp' || key === 'Up') {
+      changePlayerChannel(-1);
+    } else if (key === 'ArrowDown' || key === 'Down') {
+      changePlayerChannel(1);
     } else if (key === 'ArrowRight' || key === 'Right') {
       if (offlineFocusIdx === 1) showFavsOverlay();
       else setOfflineFocus(1);
