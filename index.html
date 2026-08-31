@@ -885,8 +885,8 @@
     position: absolute;
     /* Fixed fallbacks are important for older TV WebViews that do not
        understand clamp() or min(). */
-    top: 62px;
-    top: clamp(30px, 5.5vh, 62px);
+    top: 24px;
+    top: clamp(18px, 3vh, 32px);
     left: 50%;
     transform: translateX(-50%) translateY(-8px);
     max-width: 680px;
@@ -908,8 +908,10 @@
     z-index: 3;
     pointer-events: none;
     align-items: center;
-    gap: 12px;
-    gap: clamp(7px, 1vw, 12px);
+    /* Margin is the fallback because older TV WebViews may not implement
+       flex gap. Modern browsers replace it with the responsive gap below. */
+    gap: 0;
+    gap: clamp(10px, 1.2vw, 16px);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -935,9 +937,14 @@
     flex: 0 0 auto;
   }
   .osd-channel-name {
+    margin-left: 14px;
     overflow: hidden;
     text-overflow: ellipsis;
     text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+  }
+  @supports (gap: 1px) {
+    .player-channel-identity { gap: clamp(10px, 1.2vw, 16px); }
+    .osd-channel-name { margin-left: 0; }
   }
 
   /* ── Offline Error Card ── */
