@@ -806,18 +806,25 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 14px;
-    height: 46px;
-    margin-bottom: 12px;
+    gap: 0;
+    height: 60px;
+    margin-bottom: 0;
   }
   .stream-loader-dots span {
-    width: 16px;
-    height: 16px;
+    /* Fixed TV-safe fallback; clamp() below improves desktop sizing. */
+    width: 24px;
+    height: 24px;
+    max-width: 26px;
+    max-height: 26px;
+    width: clamp(18px, 2.2vw, 26px);
+    height: clamp(18px, 2.2vw, 26px);
     border-radius: 50%;
     background: var(--focus);
-    box-shadow: 0 0 16px rgba(0,230,118,0.42);
+    box-shadow: 0 0 20px rgba(0,230,118,0.5);
     animation: streamLoaderDot 1.35s ease-in-out infinite;
   }
+  /* Do not rely on flex gap: older TV WebViews may ignore it. */
+  .stream-loader-dots span + span { margin-left: 20px; }
   .stream-loader-dots span:nth-child(2) { animation-delay: 0.16s; }
   .stream-loader-dots span:nth-child(3) { animation-delay: 0.32s; }
   .stream-loader-dots span:nth-child(4) { animation-delay: 0.48s; }
@@ -1103,36 +1110,36 @@
     position: absolute;
     bottom: 42%; left: 50%;
     transform: translateX(-50%);
-    background: rgba(5,12,9,0.95);
-    border: 1px solid rgba(0,230,118,0.38);
-    color: #f4fff7;
-    font-family: var(--font);
-    font-size: clamp(0.76rem, 1.05vw, 1rem);
-    font-weight: 700;
-    padding: 9px 18px;
-    border-radius: 24px;
-    letter-spacing: 0.04em;
+    background: transparent;
+    border: none;
+    padding: 0;
+    border-radius: 0;
     display: none;
     z-index: 2;
     pointer-events: none;
     align-items: center;
-    gap: 10px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.48);
+    box-shadow: none;
   }
   #buffer-badge.visible { display: flex; }
   .buffer-loader-dots {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 0;
   }
   .buffer-loader-dots span {
-    width: 6px;
-    height: 6px;
+    /* Larger dots remain visible from a TV viewing distance. */
+    width: 16px;
+    height: 16px;
+    max-width: 18px;
+    max-height: 18px;
+    width: clamp(14px, 1.6vw, 18px);
+    height: clamp(14px, 1.6vw, 18px);
     border-radius: 50%;
     background: var(--focus);
-    box-shadow: 0 0 8px rgba(0,230,118,0.8);
+    box-shadow: 0 0 14px rgba(0,230,118,0.8);
     animation: bufferDotPulse 1.05s ease-in-out infinite;
   }
+  .buffer-loader-dots span + span { margin-left: 14px; }
   .buffer-loader-dots span:nth-child(2) { animation-delay: 0.15s; }
   .buffer-loader-dots span:nth-child(3) { animation-delay: 0.3s; }
   @keyframes bufferDotPulse {
@@ -2704,7 +2711,6 @@
       <div class="stream-loader-dots" aria-hidden="true">
         <span></span><span></span><span></span><span></span>
       </div>
-      <div class="stream-loading-label">Loading Stream</div>
     </div>
     <!-- Keep channel identity in the same OSD stacking context as loading.
          This is required by older Smart TV WebViews. -->
@@ -2712,9 +2718,8 @@
       <img class="osd-channel-logo" id="osd-channel-logo" alt="">
       <span class="osd-channel-name" id="osd-channel-name"></span>
     </div>
-    <div id="buffer-badge" role="status" aria-live="polite">
+    <div id="buffer-badge" role="status" aria-live="polite" aria-label="Loading stream">
       <span class="buffer-loader-dots" aria-hidden="true"><span></span><span></span><span></span></span>
-      <span>Loading Stream</span>
     </div>
 
     <div id="mute-status-popup" role="status" aria-live="polite" aria-hidden="true">
