@@ -790,7 +790,8 @@
     align-items: center;
     justify-content: center;
     gap: 0;
-    z-index: 100002;
+    /* Keep OSD child stacking values small for older Smart TV WebViews. */
+    z-index: 1;
     opacity: 0;
     pointer-events: none;
     will-change: opacity;
@@ -839,51 +840,6 @@
     text-shadow: 0 1px 8px rgba(0,0,0,0.5);
   }
 
-  /*
-   * Keep the channel identity inside the loading layer itself.
-   * This makes it stay above the loading backdrop during remote channel
-   * changes on Smart TV browsers, where sibling z-index layers can be
-   * painted differently.
-   */
-  .loading-channel-identity {
-    position: absolute;
-    top: clamp(26px, 5.5vh, 62px);
-    left: 50%;
-    transform: translateX(-50%);
-    max-width: min(86vw, 680px);
-    display: none;
-    align-items: center;
-    gap: clamp(7px, 1vw, 12px);
-    padding: clamp(7px, 1.1vw, 12px) clamp(12px, 1.7vw, 22px);
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.92);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.36);
-    color: #fff;
-    font-family: var(--font);
-    font-size: clamp(0.86rem, 1.5vw, 1.22rem);
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    z-index: 1;
-  }
-  .loading-channel-identity.visible {
-    display: inline-flex;
-  }
-  .loading-channel-logo {
-    width: clamp(28px, 3vw, 40px);
-    height: clamp(28px, 3vw, 40px);
-    object-fit: contain;
-    border-radius: 50%;
-    background: #fff;
-    padding: 2px;
-    flex: 0 0 auto;
-  }
-  .loading-channel-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.65);
-  }
-
   #mute-status-popup {
     position: absolute;
     top: 50%;
@@ -909,7 +865,7 @@
     line-height: 1.2;
     max-width: min(60vw, 420px);
     box-shadow: 0 12px 34px rgba(0, 0, 0, 0.58), 0 0 22px rgba(255, 107, 126, 0.18);
-    z-index: 100021;
+    z-index: 4;
     opacity: 0;
     pointer-events: none;
     transform: translateY(calc(-50% + 14px));
@@ -940,7 +896,9 @@
     display: none;
     font-family: var(--font);
     color: #fff;
-    z-index: 100020;
+    /* This element now lives inside #osd.  A local z-index avoids the
+       large-z-index stacking bug found in some TV WebViews. */
+    z-index: 3;
     pointer-events: none;
     align-items: center;
     gap: clamp(7px, 1vw, 12px);
@@ -1076,6 +1034,51 @@
     box-shadow: 0 0 0 3px var(--focus-glow), 0 0 20px var(--focus-glow);
   }
 
+  /* Custom playback error only — the default offline card above stays unchanged. */
+  .offline-custom-message {
+    display: none;
+    width: 100%;
+    max-width: none;
+    padding: 8px 10px;
+    border: 1px solid rgba(0, 230, 118, 0.28);
+    border-radius: 10px;
+    background: rgba(0, 230, 118, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+  #offline-card.custom-error {
+    min-width: 0;
+    width: 88%;
+    max-width: 260px;
+    padding: 16px 18px 14px;
+    border-radius: 20px;
+    gap: 10px;
+  }
+  #offline-card.custom-error .offline-status-icon,
+  #offline-card.custom-error .offline-title {
+    display: none;
+  }
+  #offline-card.custom-error .offline-custom-message {
+    display: block;
+  }
+  #offline-card.custom-error .offline-actions {
+    width: 100%;
+    gap: 8px;
+  }
+  #offline-card.custom-error .offline-btn {
+    flex: 0 0 auto;
+    min-height: 0;
+    padding: 7px 10px;
+    border-radius: 999px;
+    font-size: 0.66rem;
+  }
+  .offline-custom-label { display: none; }
+  #offline-card.custom-error .offline-default-label { display: none; }
+  #offline-card.custom-error .offline-custom-label { display: inline; }
+
   @media (min-width: 1200px) {
     #offline-card { border-width: 2px; gap: clamp(10px, 0.9vw, 18px); }
     .offline-btn { border-width: 2px; }
@@ -1095,7 +1098,7 @@
     border-radius: 24px;
     letter-spacing: 0.04em;
     display: none;
-    z-index: 100003;
+    z-index: 2;
     pointer-events: none;
     align-items: center;
     gap: 10px;
@@ -2683,14 +2686,16 @@
   <img src="https://i.postimg.cc/8k7t1Zhd/hridoytv-logo-h.png" class="player-watermark" alt="HridoyTV">
   <div id="osd">
     <div id="loading-overlay" role="status" aria-live="polite" aria-label="Loading stream">
-      <div class="loading-channel-identity" id="loading-channel-identity" aria-live="polite">
-        <img class="loading-channel-logo" id="loading-channel-logo" alt="">
-        <span class="loading-channel-name" id="loading-channel-name"></span>
-      </div>
       <div class="stream-loader-dots" aria-hidden="true">
         <span></span><span></span><span></span><span></span>
       </div>
       <div class="stream-loading-label">Loading Stream</div>
+    </div>
+    <!-- Keep channel identity in the same OSD stacking context as loading.
+         This is required by older Smart TV WebViews. -->
+    <div class="player-channel-identity" id="osd-channel" aria-live="polite">
+      <img class="osd-channel-logo" id="osd-channel-logo" alt="">
+      <span class="osd-channel-name" id="osd-channel-name"></span>
     </div>
     <div id="buffer-badge" role="status" aria-live="polite">
       <span class="buffer-loader-dots" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -2703,17 +2708,14 @@
     </div>
   </div>
   <div id="offline-card">
+      <div class="offline-custom-message" id="offline-custom-message" hidden></div>
       <div class="offline-status-icon" aria-hidden="true">📡</div>
       <div class="offline-title">Stream Unavailable</div>
       <div class="offline-actions">
-        <button class="offline-btn" id="offline-fix-btn" tabindex="-1"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i> How to fix?</button>
-        <button class="offline-btn" id="offline-contact-btn" tabindex="-1"><i class="fa-solid fa-headset" aria-hidden="true"></i> Support / Contact</button>
+        <button class="offline-btn" id="offline-fix-btn" tabindex="-1"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i> <span class="offline-default-label">How to fix?</span><span class="offline-custom-label">More help</span></button>
+        <button class="offline-btn" id="offline-contact-btn" tabindex="-1"><i class="fa-solid fa-headset" aria-hidden="true"></i> <span class="offline-default-label">Support / Contact</span><span class="offline-custom-label">Contact</span></button>
       </div>
     </div>
-  <div class="player-channel-identity" id="osd-channel" aria-live="polite">
-    <img class="osd-channel-logo" id="osd-channel-logo" alt="">
-    <span class="osd-channel-name" id="osd-channel-name"></span>
-  </div>
   <div class="player-controls" id="player-controls">
     <button class="ctrl-btn" id="mute-btn">&#x1F50A; MUTE</button>
     <button class="ctrl-btn" id="play-btn">&#x23F8;&#xFE0F; PAUSE</button>
@@ -2897,9 +2899,6 @@ const stateFixList    = document.getElementById('state-fix-list');
 const playerWrap      = document.getElementById('player-wrap');
 const vid             = document.getElementById('vid');
 const loadingOverlay  = document.getElementById('loading-overlay');
-const loadingChannelIdentity = document.getElementById('loading-channel-identity');
-const loadingChannelLogo = document.getElementById('loading-channel-logo');
-const loadingChannelName = document.getElementById('loading-channel-name');
 const bufferBadge     = document.getElementById('buffer-badge');
 const muteStatusPopup = document.getElementById('mute-status-popup');
 const osdChannel      = document.getElementById('osd-channel');
@@ -3388,6 +3387,59 @@ async function fetchPlaylistToken(signal) {
   return data;
 }
 
+function normalizeCustomMetaName(value) {
+  return String(value || '')
+    .replace(/\s*\[\d+\]\s*$/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+async function loadCustomPlaybackMetadata(signal) {
+  try {
+    const res = await fetch(PLAYLIST_BASE + '/metadata', {
+      signal: signal,
+      cache: 'no-store'
+    });
+    if (!res.ok) return;
+
+    const payload = await res.json();
+    let records = [];
+    if (Array.isArray(payload)) {
+      records = payload;
+    } else if (payload && Array.isArray(payload.channels)) {
+      records = payload.channels;
+    } else if (payload && Array.isArray(payload.data)) {
+      records = payload.data;
+    } else if (payload) {
+      records = []
+        .concat(Array.isArray(payload.wantedChannels) ? payload.wantedChannels : [])
+        .concat(Array.isArray(payload.customChannels) ? payload.customChannels : []);
+    }
+
+    const byName = new Map();
+    records.forEach(function(meta) {
+      if (!meta || typeof meta !== 'object' || !meta.name) return;
+      const message = typeof meta.customErrorMessage === 'string'
+        ? meta.customErrorMessage.trim().slice(0, 240)
+        : '';
+      byName.set(normalizeCustomMetaName(meta.name), {
+        enabled: meta.customErrorEnabled === true && message.length > 0,
+        message: message
+      });
+    });
+
+    channels.forEach(function(channel) {
+      const info = byName.get(normalizeCustomMetaName(channel.name));
+      if (!info) return;
+      channel.customErrorEnabled = info.enabled;
+      channel.customErrorMessage = info.message;
+    });
+  } catch (_) {
+    /* Custom metadata is optional; normal playlist playback must continue. */
+  }
+}
+
 async function loadPlaylist() {
   const controller = new AbortController();
   const timeoutId  = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT);
@@ -3404,6 +3456,7 @@ async function loadPlaylist() {
     const text = await r.text();
     if (text.toUpperCase().indexOf('#EXTM3U') !== -1) {
       parseM3U(text);
+      await loadCustomPlaybackMetadata(controller.signal);
     } else {
       showStateError('চ্যানেল লিস্ট লোড করা যায়নি।');
     }
@@ -4541,6 +4594,7 @@ function resetControlTimer() {
 const offlineCard      = document.getElementById('offline-card');
 const offlineFixBtn    = document.getElementById('offline-fix-btn');
 const offlineContactBtn = document.getElementById('offline-contact-btn');
+const offlineCustomMessage = document.getElementById('offline-custom-message');
 let offlineCardOpen    = false;
 let offlineFocusIdx    = 0;
 
@@ -4549,6 +4603,18 @@ function showOfflineCard() {
   hideLoading();
   hideBufferBadge();
   keepOsdChannelVisible();
+  const currentChannel = channels[_curIdx];
+  const customMessage = currentChannel &&
+    currentChannel.customErrorEnabled === true &&
+    typeof currentChannel.customErrorMessage === 'string'
+      ? currentChannel.customErrorMessage.trim().slice(0, 240)
+      : '';
+  const hasCustomMessage = customMessage.length > 0;
+  offlineCard.classList.toggle('custom-error', hasCustomMessage);
+  if (offlineCustomMessage) {
+    offlineCustomMessage.textContent = customMessage;
+    offlineCustomMessage.hidden = !hasCustomMessage;
+  }
   offlineCard.classList.add('visible');
   offlineCardOpen = true;
   setTimeout(function() {
@@ -4558,6 +4624,11 @@ function showOfflineCard() {
 }
 function hideOfflineCard() {
   offlineCard.classList.remove('visible');
+  offlineCard.classList.remove('custom-error');
+  if (offlineCustomMessage) {
+    offlineCustomMessage.textContent = '';
+    offlineCustomMessage.hidden = true;
+  }
   offlineCardOpen = false;
   offlineFixBtn.classList.remove('kbfocus');
   offlineContactBtn.classList.remove('kbfocus');
@@ -4583,40 +4654,18 @@ offlineContactBtn.addEventListener('click', function(e) {
   openPopup('contact');
 });
 
-function showLoading()  {
-  loadingOverlay.classList.add('visible');
-  if (osdChannelName.textContent) loadingChannelIdentity.classList.add('visible');
-  keepOsdChannelVisible();
-  hideBufferBadge();
-  hideOfflineCard();
-}
-function hideLoading()  {
-  loadingOverlay.classList.remove('visible');
-  loadingChannelIdentity.classList.remove('visible');
-  scheduleOsdChannelHide();
-}
+function showLoading()  { loadingOverlay.classList.add('visible'); keepOsdChannelVisible(); hideBufferBadge(); hideOfflineCard(); }
+function hideLoading()  { loadingOverlay.classList.remove('visible'); scheduleOsdChannelHide(); }
 function showBufferBadge() {
   if (!loadingOverlay.classList.contains('visible')) bufferBadge.classList.add('visible');
 }
 function hideBufferBadge() { clearTimeout(_bufferTimer); bufferBadge.classList.remove('visible'); }
 function showOsdChannel(channel) {
   if (!channel) return;
-  const channelName = channel.name || 'Live';
-  const channelLogo = channel.logo || DEFAULT_LOGO;
-
-  osdChannelName.textContent = channelName;
-  osdChannelLogo.src = channelLogo;
+  osdChannelName.textContent = channel.name || 'Live';
+  osdChannelLogo.src = channel.logo || DEFAULT_LOGO;
   osdChannelLogo.onerror = function() { this.onerror = null; this.src = DEFAULT_LOGO; };
-  osdChannelLogo.alt = channelName + ' logo';
-
-  loadingChannelName.textContent = channelName;
-  loadingChannelLogo.src = channelLogo;
-  loadingChannelLogo.onerror = function() { this.onerror = null; this.src = DEFAULT_LOGO; };
-  loadingChannelLogo.alt = channelName + ' logo';
-  if (loadingOverlay.classList.contains('visible')) {
-    loadingChannelIdentity.classList.add('visible');
-  }
-
+  osdChannelLogo.alt = (channel.name || 'Live') + ' logo';
   keepOsdChannelVisible();
 }
 function keepOsdChannelVisible() {
