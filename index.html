@@ -883,14 +883,21 @@
 
   .player-channel-identity {
     position: absolute;
-    top: clamp(30px, 5.5vh, 62px); left: 50%;
+    /* Fixed fallbacks are important for older TV WebViews that do not
+       understand clamp() or min(). */
+    top: 62px;
+    top: clamp(30px, 5.5vh, 62px);
+    left: 50%;
     transform: translateX(-50%) translateY(-8px);
+    max-width: 680px;
     max-width: min(86vw, 680px);
     background: rgba(0, 0, 0, 0.92);
     border: none;
     box-shadow: 0 8px 24px rgba(0,0,0,0.36);
+    padding: 12px 22px;
     padding: clamp(7px, 1.1vw, 12px) clamp(12px, 1.7vw, 22px);
     border-radius: 999px;
+    font-size: 1.22rem;
     font-size: clamp(0.86rem, 1.5vw, 1.22rem);
     font-weight: 700;
     display: none;
@@ -901,6 +908,7 @@
     z-index: 3;
     pointer-events: none;
     align-items: center;
+    gap: 12px;
     gap: clamp(7px, 1vw, 12px);
     white-space: nowrap;
     overflow: hidden;
@@ -912,6 +920,12 @@
     transform: translateX(-50%) translateY(0);
   }
   .osd-channel-logo {
+    /* TV-safe fallback before the responsive declarations. Without this,
+       unsupported clamp() makes the image use its full intrinsic size. */
+    width: 40px;
+    height: 40px;
+    max-width: 40px;
+    max-height: 40px;
     width: clamp(28px, 3vw, 40px);
     height: clamp(28px, 3vw, 40px);
     object-fit: contain;
