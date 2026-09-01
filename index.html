@@ -962,8 +962,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 14px;
-    gap: clamp(14px, 1.3vw, 24px);
+    /* Use child margins below instead of flex gap: several Smart TV
+       WebViews ignore gap and make the icon/title touch each other. */
+    gap: 0;
     z-index: 100004;
     opacity: 0;
     pointer-events: none;
@@ -1000,27 +1001,31 @@
     color: #fff;
     letter-spacing: 0.04em;
     line-height: 1.25;
-    margin-top: 3px;
-    margin-top: clamp(1px, 0.25vw, 5px);
-    margin-bottom: 6px;
-    margin-bottom: clamp(3px, 0.55vw, 9px);
+    margin-top: 0;
+    margin-bottom: 8px;
+    margin-bottom: clamp(8px, 0.9vw, 16px);
     text-shadow: 0 2px 14px rgba(255,255,255,0.12);
   }
   .offline-status-icon {
     font-size: 2.5rem;
     font-size: clamp(2rem, 3.7vw, 4.5rem);
     line-height: 1;
+    margin-bottom: 12px;
+    margin-bottom: clamp(10px, 1vw, 18px);
     filter: drop-shadow(0 0 14px rgba(0,230,118,0.25));
     animation: offlinePulse 2.4s ease-in-out infinite;
   }
   .offline-actions {
     display: flex;
     flex-direction: row;
-    gap: 12px;
-    gap: clamp(10px, 1.2vw, 20px);
+    gap: 0;
     pointer-events: auto;
     justify-content: center;
     width: 100%;
+  }
+  .offline-actions .offline-btn + .offline-btn {
+    margin-left: 10px;
+    margin-left: clamp(10px, 1.2vw, 20px);
   }
   .offline-btn {
     flex: 1;
@@ -1044,10 +1049,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.55em;
+    gap: 0;
   }
   .offline-btn i {
     font-size: 1.05em;
+    margin-right: 0.55em;
+    flex: 0 0 auto;
   }
   .offline-btn:focus, .offline-btn:hover, .offline-btn.kbfocus {
     border-color: var(--focus);
@@ -1077,7 +1084,7 @@
     max-width: 260px;
     padding: 16px 18px 14px;
     border-radius: 20px;
-    gap: 10px;
+    gap: 0;
   }
   #offline-card.custom-error .offline-status-icon,
   #offline-card.custom-error .offline-title {
@@ -1085,10 +1092,15 @@
   }
   #offline-card.custom-error .offline-custom-message {
     display: block;
+    margin-bottom: 8px;
+    margin-bottom: clamp(8px, 0.9vw, 12px);
   }
   #offline-card.custom-error .offline-actions {
     width: 100%;
-    gap: 8px;
+    gap: 0;
+  }
+  #offline-card.custom-error .offline-actions .offline-btn + .offline-btn {
+    margin-left: 8px;
   }
   #offline-card.custom-error .offline-btn {
     flex: 0 0 auto;
@@ -1102,7 +1114,7 @@
   #offline-card.custom-error .offline-custom-label { display: inline; }
 
   @media (min-width: 1200px) {
-    #offline-card { border-width: 2px; gap: clamp(10px, 0.9vw, 18px); }
+    #offline-card { border-width: 2px; gap: 0; }
     .offline-btn { border-width: 2px; }
   }
 
