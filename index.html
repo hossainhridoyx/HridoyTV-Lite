@@ -174,7 +174,7 @@
     display: inline-flex;
     white-space: nowrap;
     will-change: transform;
-    animation: navTicker 28s linear infinite;
+    animation: navTicker 40s linear infinite;
   }
   .nav-ticker.ticker-paused {
     animation-play-state: paused;
@@ -770,7 +770,7 @@
     object-fit: contain;
     z-index: 100000;
     pointer-events: none;
-    opacity: 0.82;
+    opacity: 0.70;
   }
 
   #osd {
@@ -892,8 +892,8 @@
     position: absolute;
     /* Fixed fallbacks are important for older TV WebViews that do not
        understand clamp() or min(). */
-    top: 24px;
-    top: clamp(18px, 3vh, 32px);
+    top: 30px;
+    top: clamp(30px, 5vh, 48px);
     left: 50%;
     transform: translateX(-50%) translateY(-8px);
     max-width: 520px;
@@ -904,8 +904,8 @@
     padding: 8px 14px;
     padding: clamp(5px, 0.7vw, 8px) clamp(9px, 1.2vw, 14px);
     border-radius: 999px;
-    font-size: 0.95rem;
-    font-size: clamp(0.7rem, 1.1vw, 0.98rem);
+    font-size: 1.1rem;
+    font-size: clamp(0.85rem, 1.35vw, 1.2rem);
     font-weight: 700;
     display: none;
     font-family: var(--font);
@@ -4712,6 +4712,7 @@ favsBtn.addEventListener('click', function(e) { e.stopPropagation(); showFavsOve
 
 const BACK_KEYS  = new Set([4, 8, 27, 461, 10009, 10182]);
 const ENTER_KEYS = new Set([13, 32]);
+const POPUP_OK_KEYS = new Set([13, 23, 32, 66, 160]);
 
 window.addEventListener('keydown', function(e) {
   const key  = e.key;
@@ -4725,6 +4726,25 @@ window.addEventListener('keydown', function(e) {
     else if (ENTER_KEYS.has(code) || key === 'Enter') {
       if (document.activeElement === _dlClose) closeDownloadNotice();
       else _dlDownload.click();
+    }
+    return;
+  }
+
+  /* Popups own the TV remote while they are open. This must run before the
+     offline/error cards because player help popups are opened from those
+     cards and should not leak Back/OK/Up/Down events to the card underneath. */
+  if (popupOpen) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') {
+      closePopup();
+    } else if (POPUP_OK_KEYS.has(code) || key === 'Enter' || key === 'NumpadEnter' ||
+               key === 'Accept' || key === 'Select' || key === 'OK' || key === 'Ok') {
+      closePopup();
+    } else if (key === 'ArrowDown' || key === 'Down') {
+      popupBody.scrollBy({ top: 80, behavior: 'smooth' });
+    } else if (key === 'ArrowUp' || key === 'Up') {
+      popupBody.scrollBy({ top: -80, behavior: 'smooth' });
     }
     return;
   }
@@ -4760,15 +4780,6 @@ window.addEventListener('keydown', function(e) {
       if (stateBtnFocusIdx === 1) openPopup('contact');
       else retryLoadPlaylist();
     }
-    return;
-  }
-
-  if (popupOpen) {
-    e.stopImmediatePropagation();
-    if (BACK_KEYS.has(code) || key === 'Escape' || key === 'Back' || key === 'GoBack' || key === 'BrowserBack') { e.preventDefault(); closePopup(); }
-    else if (ENTER_KEYS.has(code) || key === 'Enter') { e.preventDefault(); closePopup(); }
-    else if (key === 'ArrowDown' || key === 'Down') { e.preventDefault(); popupBody.scrollBy({ top: 80, behavior: 'smooth' }); }
-    else if (key === 'ArrowUp' || key === 'Up') { e.preventDefault(); popupBody.scrollBy({ top: -80, behavior: 'smooth' }); }
     return;
   }
 
