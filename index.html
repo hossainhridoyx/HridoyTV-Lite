@@ -2515,6 +2515,26 @@ border: 2px solid #e11d48;
 
 
   /* ── Final TV overlay polish ── */
+  /* Do not rely on flex gap for older Smart TV WebViews. */
+  .overlay-title {
+    gap: 0 !important;
+  }
+  .overlay-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    margin-right: 12px;
+  }
+  .overlay-title-text {
+    display: block;
+    min-width: 0;
+  }
+  @media (min-width: 1200px) {
+    .overlay-title-icon {
+      margin-right: clamp(14px, 1vw, 20px);
+    }
+  }
   .overlay-cat-btn {
     gap: 8px !important;
     padding-top: 11px !important;
@@ -2946,7 +2966,7 @@ if (window.__HT_BLOCKED) {
   /* mobile gate already shown — stop here */
 } else {
 
-const CONFIG_URL     = 'https://hridoy6tv-config.pages.dev/config.json';
+const CONFIG_URL     = 'https://hridoytv-config.pages.dev/config.json';
 let   PLAYLIST_BASE  = '';
 const FETCH_TIMEOUT = 10000;
 
