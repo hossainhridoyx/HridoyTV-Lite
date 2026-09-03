@@ -2946,7 +2946,7 @@ if (window.__HT_BLOCKED) {
   /* mobile gate already shown — stop here */
 } else {
 
-const CONFIG_URL     = 'https://hridoytv5-config.pages.dev/config.json';
+const CONFIG_URL     = 'https://hridoy6tv-config.pages.dev/config.json';
 let   PLAYLIST_BASE  = '';
 const FETCH_TIMEOUT = 10000;
 
@@ -4965,7 +4965,10 @@ window.addEventListener('keydown', function(e) {
            buttons yet, so fall back to the information menu. */
         stateErrorOpen = false;
         stateCardMenuReturn = true;
-        STATE_BTNS().forEach(function(button) { button.classList.remove('kbfocus'); });
+        STATE_BTNS().forEach(function(button) {
+          button.classList.remove('kbfocus');
+          button.blur();
+        });
         const catItems = getCatItems();
         if (catItems.length) {
           activePane = 'sidebar';
