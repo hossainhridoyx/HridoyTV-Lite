@@ -2946,7 +2946,7 @@ if (window.__HT_BLOCKED) {
   /* mobile gate already shown — stop here */
 } else {
 
-const CONFIG_URL     = 'https://hridoyt6v-config.pages.dev/config.json';
+const CONFIG_URL     = 'https://hridoytv-6config.pages.dev/config.json';
 let   PLAYLIST_BASE  = '';
 const FETCH_TIMEOUT = 10000;
 
@@ -4944,7 +4944,25 @@ window.addEventListener('keydown', function(e) {
   if (stateErrorOpen) {
     e.preventDefault(); e.stopImmediatePropagation();
     if (key === 'ArrowRight' || key === 'Right') { if (stateBtnFocusIdx < 1) _focusStateBtn(stateBtnFocusIdx + 1); }
-    else if (key === 'ArrowLeft' || key === 'Left') { if (stateBtnFocusIdx > 0) _focusStateBtn(stateBtnFocusIdx - 1); }
+    else if (key === 'ArrowLeft' || key === 'Left' || code === 37) {
+      if (stateBtnFocusIdx > 0) {
+        _focusStateBtn(stateBtnFocusIdx - 1);
+      } else {
+        /* From the first error-card button, Left hands focus back to the
+           available menu on the left. Failed playlist loads have no category
+           buttons yet, so fall back to the information menu. */
+        stateErrorOpen = false;
+        STATE_BTNS().forEach(function(button) { button.classList.remove('kbfocus'); });
+        const catItems = getCatItems();
+        if (catItems.length) {
+          activePane = 'sidebar';
+          setCatFocus(Math.min(catActiveIdx, catItems.length - 1));
+        } else {
+          activePane = 'info';
+          setInfoFocus(0);
+        }
+      }
+    }
     else if (ENTER_KEYS.has(code) || key === 'Enter') {
       if (stateBtnFocusIdx === 1) openPopup('contact');
       else retryLoadPlaylist();
