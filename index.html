@@ -2553,37 +2553,40 @@ border: 2px solid #e11d48;
 
   /* ── TV-safe channel-list state card ── */
   .content-area > .state-card {
-    width: 440px;
+    top: 50%;
+    width: 420px;
     max-width: calc(100% - 32px);
     min-width: 0;
-    padding: 28px 32px 30px;
+    max-height: calc(100% - 28px);
+    padding: 18px 22px 20px;
     gap: 0;
     font-family: 'Noto Sans Bengali', 'Poppins', sans-serif;
+    overflow-y: auto;
   }
   .content-area > .state-card .state-card-icon {
     display: block;
-    margin-bottom: 18px;
-    font-size: 2.4rem;
+    margin-bottom: 10px;
+    font-size: 2rem;
     line-height: 1;
   }
   .content-area > .state-card .state-card-title {
     width: 100%;
-    margin-bottom: 12px;
-    font-size: 1.12rem;
+    margin-bottom: 8px;
+    font-size: 1rem;
     font-weight: 700;
-    line-height: 1.55;
+    line-height: 1.4;
     letter-spacing: 0;
     overflow-wrap: anywhere;
   }
   .content-area > .state-card .state-card-sub {
     width: 100%;
-    margin-bottom: 16px;
-    font-size: 0.92rem;
-    line-height: 1.65;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+    line-height: 1.45;
     overflow-wrap: anywhere;
   }
   .content-area > .state-card .offline-divider {
-    margin: 2px 0 18px;
+    margin: 2px 0 10px;
   }
   .content-area > .state-card .state-fix-list {
     gap: 0;
@@ -2591,40 +2594,40 @@ border: 2px solid #e11d48;
   }
   .content-area > .state-card .state-fix-step {
     gap: 0;
-    margin-bottom: 11px;
+    margin-bottom: 6px;
     align-items: flex-start;
   }
   .content-area > .state-card .state-fix-step:last-child {
     margin-bottom: 0;
   }
   .content-area > .state-card .state-fix-num {
-    width: 24px;
-    min-width: 24px;
-    height: 24px;
-    margin: 3px 12px 0 0;
-    font-size: 0.72rem;
+    width: 20px;
+    min-width: 20px;
+    height: 20px;
+    margin: 2px 8px 0 0;
+    font-size: 0.64rem;
   }
   .content-area > .state-card .state-fix-txt {
     min-width: 0;
-    font-size: 0.86rem;
-    line-height: 1.65;
+    font-size: 0.76rem;
+    line-height: 1.45;
     overflow-wrap: anywhere;
   }
   .content-area > .state-card .state-btn-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 10px;
     width: 100%;
-    margin-top: 22px;
+    margin-top: 12px;
     align-items: stretch;
   }
   .content-area > .state-card .state-btn-row .offline-btn {
     width: 100%;
     min-width: 0;
-    min-height: 54px;
+    min-height: 42px;
     margin: 0 !important;
-    padding: 11px 14px;
-    border-radius: 12px;
+    padding: 8px 10px;
+    border-radius: 10px;
     white-space: normal;
     text-align: center;
     line-height: 1.35;
@@ -2647,48 +2650,50 @@ border: 2px solid #e11d48;
 
   @media (min-width: 1200px) {
     .content-area > .state-card {
-      width: clamp(520px, 42vw, 780px);
+      top: 50%;
+      width: clamp(430px, 32vw, 620px);
       max-width: calc(100% - 56px);
-      padding: clamp(30px, 2.6vw, 52px) clamp(34px, 3.2vw, 64px);
+      max-height: calc(100% - 40px);
+      padding: clamp(20px, 1.5vw, 30px) clamp(26px, 2vw, 42px);
     }
     .content-area > .state-card .state-card-icon {
-      margin-bottom: clamp(20px, 1.4vw, 30px);
-      font-size: clamp(2.8rem, 3.8vw, 4.8rem);
+      margin-bottom: clamp(11px, 0.8vw, 16px);
+      font-size: clamp(2.1rem, 2.6vw, 3.4rem);
     }
     .content-area > .state-card .state-card-title {
-      margin-bottom: clamp(14px, 1vw, 22px);
-      font-size: clamp(1.25rem, 1.8vw, 2rem);
+      margin-bottom: clamp(8px, 0.6vw, 12px);
+      font-size: clamp(1.05rem, 1.35vw, 1.5rem);
     }
     .content-area > .state-card .state-card-sub {
-      margin-bottom: clamp(18px, 1.3vw, 28px);
-      font-size: clamp(1rem, 1.25vw, 1.35rem);
+      margin-bottom: clamp(11px, 0.8vw, 16px);
+      font-size: clamp(0.84rem, 0.95vw, 1.05rem);
     }
     .content-area > .state-card .offline-divider {
-      margin-bottom: clamp(20px, 1.4vw, 30px);
+      margin-bottom: clamp(11px, 0.8vw, 16px);
     }
     .content-area > .state-card .state-fix-step {
-      margin-bottom: clamp(12px, 0.8vw, 18px);
+      margin-bottom: clamp(7px, 0.5vw, 10px);
     }
     .content-area > .state-card .state-fix-num {
-      width: clamp(26px, 1.6vw, 32px);
-      min-width: clamp(26px, 1.6vw, 32px);
-      height: clamp(26px, 1.6vw, 32px);
-      margin-right: clamp(14px, 1vw, 20px);
-      font-size: clamp(0.78rem, 0.8vw, 1rem);
+      width: clamp(22px, 1.2vw, 26px);
+      min-width: clamp(22px, 1.2vw, 26px);
+      height: clamp(22px, 1.2vw, 26px);
+      margin-right: clamp(9px, 0.7vw, 14px);
+      font-size: clamp(0.68rem, 0.65vw, 0.82rem);
     }
     .content-area > .state-card .state-fix-txt {
-      font-size: clamp(1rem, 1.12vw, 1.3rem);
-      line-height: 1.7;
+      font-size: clamp(0.82rem, 0.9vw, 1.02rem);
+      line-height: 1.5;
     }
     .content-area > .state-card .state-btn-row {
-      gap: clamp(16px, 1.2vw, 24px);
-      margin-top: clamp(24px, 1.7vw, 36px);
+      gap: clamp(11px, 0.8vw, 16px);
+      margin-top: clamp(14px, 1vw, 20px);
     }
     .content-area > .state-card .state-btn-row .offline-btn {
-      min-height: clamp(60px, 4.2vw, 78px);
-      padding: clamp(13px, 1vw, 20px) clamp(16px, 1.5vw, 30px);
-      border-radius: clamp(13px, 0.9vw, 18px);
-      font-size: clamp(1rem, 1.22vw, 1.35rem);
+      min-height: clamp(46px, 3vw, 58px);
+      padding: clamp(9px, 0.7vw, 13px) clamp(12px, 1vw, 20px);
+      border-radius: clamp(10px, 0.7vw, 14px);
+      font-size: clamp(0.86rem, 0.95vw, 1.08rem);
     }
   }
 
@@ -2941,7 +2946,7 @@ if (window.__HT_BLOCKED) {
   /* mobile gate already shown — stop here */
 } else {
 
-const CONFIG_URL     = 'https://hridoytv-config.pages.dev/config.jsontest';
+const CONFIG_URL     = 'https://hridoyt6v-config.pages.dev/config.json';
 let   PLAYLIST_BASE  = '';
 const FETCH_TIMEOUT = 10000;
 
@@ -5067,7 +5072,7 @@ window.addEventListener('keydown', function(e) {
         } else if (key === 'ArrowRight' || key === 'Right') {
           e.preventDefault();
           hideAllPlayerPanels();
-        } else if (key === 'ArrowLeft' || key === 'Left') {
+        } else if (key === 'ArrowLeft' || key === 'Left' || code === 37) {
           e.preventDefault();
           overlayFocusPane = 'categories';
           const activeCatBtn = document.querySelector('.overlay-cat-btn.active');
@@ -5075,8 +5080,8 @@ window.addEventListener('keydown', function(e) {
             catBtns.forEach(function(btn, idx) {
               if (btn.classList.contains('active')) overlayCatFocusIdx = idx;
             });
-            focusOverlayCategory(overlayCatFocusIdx);
           }
+          focusOverlayCategory(overlayCatFocusIdx);
         } else if (ENTER_KEYS.has(code) || key === 'Enter') {
           e.preventDefault();
           if (filteredOverlayChannels[overlayFocusIdx]) {
