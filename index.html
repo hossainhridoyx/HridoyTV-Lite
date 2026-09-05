@@ -4500,17 +4500,19 @@ function updateMuteButtonUI() {
 function togglePlay() {
   if (vid.paused) {
     _playbackPausedByUser = false;
-    vid.play().catch(function() {});
+    vid.play().catch(function() {
+      updatePlayButtonUI();
+    });
   } else {
     _playbackPausedByUser = true;
     clearTimeout(_streamFallbackTimer);
     vid.pause();
   }
-  updatePlayButtonUI();
   resetControlTimer();
 }
 function updatePlayButtonUI() {
-  playBtn.textContent = vid.paused ? '\u25B6\uFE0F PLAY' : '\u23F8\uFE0F PAUSE';
+  const isPlaying = !vid.paused && !vid.ended;
+  playBtn.textContent = isPlaying ? '\u23F8\uFE0F PAUSE' : '\u25B6\uFE0F PLAY';
 }
 
 function getQualityLevels() {
@@ -5276,8 +5278,11 @@ vid.addEventListener('waiting', function() {
     if (playerOpen && !document.hidden && !_playbackPausedByUser) showBufferBadge();
   }, 800);
 });
-vid.addEventListener('playing', function() { hideLoading(); hideBufferBadge(); });
-vid.addEventListener('canplay',  function() { hideLoading(); hideBufferBadge(); });
+vid.addEventListener('play',     updatePlayButtonUI);
+vid.addEventListener('pause',    updatePlayButtonUI);
+vid.addEventListener('ended',    updatePlayButtonUI);
+vid.addEventListener('playing', function() { updatePlayButtonUI(); hideLoading(); hideBufferBadge(); });
+vid.addEventListener('canplay',  function() { updatePlayButtonUI(); hideLoading(); hideBufferBadge(); });
 
 renderInfoList();
 loadPlaylist();
