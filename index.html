@@ -2923,8 +2923,9 @@ border: 2px solid #e11d48;
       <div class="offline-status-icon" aria-hidden="true">📡</div>
       <div class="offline-title">Stream Unavailable</div>
       <div class="offline-actions">
+        <button class="offline-btn" id="offline-reload-btn" tabindex="-1"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Reload</button>
         <button class="offline-btn" id="offline-fix-btn" tabindex="-1"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i> <span class="offline-default-label">How to fix?</span><span class="offline-custom-label">More help</span></button>
-        <button class="offline-btn" id="offline-contact-btn" tabindex="-1"><i class="fa-solid fa-headset" aria-hidden="true"></i> <span class="offline-default-label">Support / Contact</span><span class="offline-custom-label">Contact</span></button>
+        <button class="offline-btn" id="offline-contact-btn" tabindex="-1"><i class="fa-solid fa-headset" aria-hidden="true"></i> <span class="offline-default-label">Support</span><span class="offline-custom-label">Support</span></button>
       </div>
     </div>
   <div class="player-controls" id="player-controls">
@@ -4816,6 +4817,7 @@ function resetControlTimer() {
 }
 
 const offlineCard      = document.getElementById('offline-card');
+const offlineReloadBtn = document.getElementById('offline-reload-btn');
 const offlineFixBtn    = document.getElementById('offline-fix-btn');
 const offlineContactBtn = document.getElementById('offline-contact-btn');
 const offlineCustomMessage = document.getElementById('offline-custom-message');
@@ -4854,19 +4856,27 @@ function hideOfflineCard() {
     offlineCustomMessage.hidden = true;
   }
   offlineCardOpen = false;
+  offlineReloadBtn.classList.remove('kbfocus');
   offlineFixBtn.classList.remove('kbfocus');
   offlineContactBtn.classList.remove('kbfocus');
   scheduleOsdChannelHide();
 }
 
 function setOfflineFocus(idx) {
-  const buttons = [offlineFixBtn, offlineContactBtn];
+  const buttons = [offlineReloadBtn, offlineFixBtn, offlineContactBtn];
   offlineFocusIdx = Math.max(0, Math.min(idx, buttons.length - 1));
   buttons.forEach(function(button) { button.classList.remove('kbfocus'); });
   buttons[offlineFocusIdx].classList.add('kbfocus');
   buttons[offlineFocusIdx].focus({ preventScroll: true });
 }
 
+offlineReloadBtn.addEventListener('click', function(e) {
+  e.stopPropagation();
+  if (_curIdx < 0 || _curIdx >= channels.length) return;
+  hideOfflineCard();
+  showLoading();
+  playStream(_curIdx, 0);
+});
 offlineFixBtn.addEventListener('click', function(e) {
   e.stopPropagation();
   _returnToOfflineCard = true;
@@ -4967,13 +4977,13 @@ else if (key === 'ArrowRight' || key === 'Right') _dlDownload.focus();
     } else if (key === 'ArrowDown' || key === 'Down') {
       changePlayerChannel(1);
     } else if (key === 'ArrowRight' || key === 'Right') {
-      if (offlineFocusIdx === 1) showFavsOverlay();
-      else setOfflineFocus(1);
+      if (offlineFocusIdx === 2) showFavsOverlay();
+      else setOfflineFocus(offlineFocusIdx + 1);
     } else if (key === 'ArrowLeft' || key === 'Left') {
       if (offlineFocusIdx === 0) showChannelOverlay();
-      else setOfflineFocus(0);
+      else setOfflineFocus(offlineFocusIdx - 1);
     } else if (ENTER_KEYS.has(code) || key === 'Enter') {
-      [offlineFixBtn, offlineContactBtn][offlineFocusIdx].click();
+      [offlineReloadBtn, offlineFixBtn, offlineContactBtn][offlineFocusIdx].click();
     }
     return;
   }
